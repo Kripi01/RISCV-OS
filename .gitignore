@@ -1,0 +1,5 @@
+*.o
+*.log
+*.bin
+.gdb_history
+.gdbinit
