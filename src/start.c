@@ -190,23 +190,26 @@ void efface_ecran() {
 
 // Fait remonter d'une ligne l'affichage à l'écran
 void defilement() {
-  uint64_t bytes_per_pixel = 4;
-  uint64_t font_height = 8;
-  uint64_t bytes_per_line = DISPLAY_WIDTH * bytes_per_pixel * font_height;
+  if (cursor_lig > 1) {
+    uint64_t bytes_per_pixel = 4;
+    uint64_t font_height = 8;
+    uint64_t bytes_per_line = DISPLAY_WIDTH * bytes_per_pixel * font_height;
 
-  // Attention, on ne déplace pas l'horloge (la ligne 0)
-  memmove((uint32_t *)(BOCHS_DISPLAY_BASE_ADDRESS + bytes_per_line),
-          (uint32_t *)(BOCHS_DISPLAY_BASE_ADDRESS + 2 * bytes_per_line),
-          DISPLAY_WIDTH * (DISPLAY_HEIGHT - 2 * font_height) * bytes_per_pixel);
+    // Attention, on ne déplace pas l'horloge (la ligne 0)
+    memmove((uint32_t *)(BOCHS_DISPLAY_BASE_ADDRESS + bytes_per_line),
+            (uint32_t *)(BOCHS_DISPLAY_BASE_ADDRESS + 2 * bytes_per_line),
+            DISPLAY_WIDTH * (DISPLAY_HEIGHT - 2 * font_height) *
+                bytes_per_pixel);
 
-  // Il faut clear la dernière ligne
-  memset((uint32_t *)(BOCHS_DISPLAY_BASE_ADDRESS +
-                      (DISPLAY_HEIGHT - font_height) * DISPLAY_WIDTH *
-                          bytes_per_pixel),
-         black, bytes_per_line);
+    // Il faut clear la dernière ligne
+    memset((uint32_t *)(BOCHS_DISPLAY_BASE_ADDRESS +
+                        (DISPLAY_HEIGHT - font_height) * DISPLAY_WIDTH *
+                            bytes_per_pixel),
+           black, bytes_per_line);
 
-  // On actualise la position du curseur
-  cursor_lig -= 1;
+    // On actualise la position du curseur
+    cursor_lig -= 1;
+  }
 }
 
 // Traite un caractère donné i.e. l'affiche si c'est un caractère
@@ -230,9 +233,9 @@ void traite_car(char c) {
       new_lig++;
     }
     // Si on arrive au bas de l'écran, alors il faut remonter d'une ligne
-    if (new_lig >= DISPLAY_NB_LIG - 1) {
+    if (new_lig >= DISPLAY_NB_LIG) {
       defilement();
-      new_lig = DISPLAY_NB_LIG - 2;
+      new_lig = DISPLAY_NB_LIG - 1;
       did_scroll = 1;
     }
 
@@ -261,15 +264,15 @@ void traite_car(char c) {
         new_lig += 1;
       }
       // Si on arrive au bas de l'écran, alors il faut remonter d'une ligne
-      if (new_lig >= DISPLAY_NB_LIG - 1) {
+      if (new_lig >= DISPLAY_NB_LIG) {
         defilement();
-        new_lig = DISPLAY_NB_LIG - 2;
+        new_lig = DISPLAY_NB_LIG - 1;
       }
       place_curseur(new_lig, new_col);
     } break;
     case 10: // \n (déplace le curseur sur la ligne suivante, colonne 0)
       // Si on arrive au bas de l'écran, alors il faut remonter d'une ligne
-      if (cursor_lig + 1 >= DISPLAY_NB_LIG - 1) {
+      if (cursor_lig + 1 >= DISPLAY_NB_LIG) {
         defilement();
       }
       place_curseur(cursor_lig + 1, 0);
@@ -324,15 +327,46 @@ void custom_sleep() {
 }
 
 void kernel_start() {
+  // init_uart();
+  // printf("> Test [printf UART] (1/1)\n");
+  // init_ecran();
+  // printf("Truc\nSalut\n1\t2\t3\nAB\bC\nBEEF\rRABBIT");
+  // for (int i = 0; i < 90; i++) {
+  //   printf("%d\n", i);
+  // }
+  // printf("Hello\n");
+  // // printf("\f");
+
   init_uart();
-  printf("> Test [printf UART] (1/1)\n");
   init_ecran();
-  printf("Truc\nSalut\n1\t2\t3\nAB\bC\nBEEF\rRABBIT");
-  for (int i = 0; i < 90; i++) {
-    printf("%d\n", i);
+
+  for (int i = 0; i < 10; i++) {
+    display_french_flag();
   }
-  printf("Hello\n");
-  // printf("\f");
+  efface_ecran();
+
+  for (int i = 0; i < 13000; i++) {
+    traite_car('a');
+    custom_sleep();
+  }
+  custom_sleep();
+  traite_car('g');
+  custom_sleep();
+  traite_car('g');
+  custom_sleep();
+  traite_car('g');
+  custom_sleep();
+  for (int i = 0; i < 13000; i++) {
+    traite_car('\t');
+    traite_car('g');
+    custom_sleep();
+  }
+  // for (int i = 0; i < 130; i++) {
+  //   // traite_car('\n');
+  //   traite_car('g');
+  //   custom_sleep();
+  // }
+  // traite_car('z');
 
   /* on ne doit jamais sortir de kernel_start */
   while (1) {
@@ -340,59 +374,3 @@ void kernel_start() {
     hlt();
   }
 }
-
-/* ======================================================= */
-/* ===================== TESTS PERSO ===================== */
-/* ======================================================= */
-
-// init_uart();
-// init_ecran();
-
-// for (int i = 0; i < 10; i++) {
-//   display_french_flag();
-// }
-// efface_ecran();
-
-// for (int i = 0; i < 13000; i++) {
-//   traite_car('a');
-//   custom_sleep();
-// }
-// // traite_car('\n');
-// // traite_car('\n');
-// // traite_car('b');
-// // traite_car('a');
-// // traite_car('a');
-// // traite_car('\b');
-// // traite_car('\b');
-// // traite_car('\b');
-// // traite_car('\b');
-// // traite_car('\t');
-// // traite_car('\b');
-// // traite_car('\b');
-// // traite_car('c');
-// // traite_car('\t');
-// // traite_car('\r');
-// // // traite_car('\f');
-// // // for (int j = 0; j < 1000000000; j++) {
-// // //   // timeout
-// // // }
-// defilement();
-// custom_sleep();
-// traite_car('g');
-// custom_sleep();
-// traite_car('g');
-// custom_sleep();
-// traite_car('g');
-// custom_sleep();
-// traite_car('\n');
-// custom_sleep();
-// traite_car('\n');
-// custom_sleep();
-// traite_car('\n');
-// custom_sleep();
-// traite_car('\n');
-// custom_sleep();
-// traite_car('\n');
-// custom_sleep();
-
-// console_put_bytes("Hugo\n", 5);
