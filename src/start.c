@@ -313,7 +313,11 @@ void display_top_right(const char *s, int len) {
 }
 
 // Renvoie le nombre de secondes depuis le lancement du programme.
-uint64_t nbr_secondes() { return *(uint64_t *)(CLINT_TIMER) / TIMER_FREQ; }
+uint64_t nbr_secondes() {
+  // return *(uint64_t *)(CLINT_TIMER) / TIMER_FREQ;
+  static uint64_t time = 0;
+  return (time++) / IT_FREQ;
+}
 
 // Gère (ou masque) les interruptions.
 void trap_handler(uint64_t mcause, uint64_t mie, uint64_t mip) {
