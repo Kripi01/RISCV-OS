@@ -218,12 +218,10 @@ void traite_car(char c) {
   uint8_t uc = (uint8_t)c;
   // Caractère imprimable
   if (32 <= uc && uc <= 126) {
-    // WARNING: Il faut déplacer le curseur avant d'écrire la lettre car sinon,
-    // l'arrière-plan de la lettre écrase le curseur et la suppression
-    // ultérieure du curseur dessine la couleur opposée
-    uint32_t old_lig = cursor_lig;
-    uint32_t old_col = cursor_col;
-    int did_scroll = 0;
+    // NOTE: On est obligé de découper la gestion du curseur pour ne pas écraser
+    // le curseur avec le caractère (ce qui pose problème quand on veut
+    // supprimer le curseur ensuite -> inversion des couleurs)
+    _supprime_curseur();
 
     uint32_t new_lig = cursor_lig;
     uint32_t new_col = cursor_col + 1;
@@ -232,20 +230,15 @@ void traite_car(char c) {
       new_col = 0;
       new_lig++;
     }
+    ecrit_car(cursor_lig, cursor_col, uc, white, black);
+
     // Si on arrive au bas de l'écran, alors il faut remonter d'une ligne
     if (new_lig >= DISPLAY_NB_LIG) {
       defilement();
       new_lig = DISPLAY_NB_LIG - 1;
-      did_scroll = 1;
     }
 
-    place_curseur(new_lig, new_col);
-
-    if (did_scroll) {
-      ecrit_car(old_lig - 1, old_col, uc, white, black);
-    } else {
-      ecrit_car(old_lig, old_col, uc, white, black);
-    }
+    _place_curseur(new_lig, new_col);
   } else {
     switch (uc) {
     case 8: // \b (recule le curseur d'une colonne, si la colonne est > 0)
@@ -302,6 +295,68 @@ void console_putbytes(const char *s, int len) {
 }
 
 /* ======================================================= */
+/* ================= INTERRUPTIONS HORLOGES ============== */
+/* ======================================================= */
+
+#define IT_FREQ 20
+#define IT_TICS_REMAINING TIMER_FREQ / IT_FREQ
+
+extern void traitant();
+
+// Affiche le string s sur la ligne en haut à droite.
+// WARNING: len (la taille de s) ne doit pas dépasser la taille d'une ligne car
+// on ne gère pas les caractères de contrôle.
+void display_top_right(const char *s, int len) {
+  for (int i = 0; i < len; i++) {
+    ecrit_car(0, DISPLAY_NB_COL - (len - i), s[i], white, black);
+  }
+}
+
+// Renvoie le nombre de secondes depuis le lancement du programme.
+uint64_t nbr_secondes() { return *(uint64_t *)(CLINT_TIMER) / TIMER_FREQ; }
+
+// Gère (ou masque) les interruptions.
+void trap_handler(uint64_t mcause, uint64_t mie, uint64_t mip) {
+  if (mcause >> 63) { // C'est bien une interruption (et pas une exception)
+    if ((mie & mip) == 0) { // Interruption masquée
+      return;
+    }
+
+    uint64_t masked_mcause = mcause & 0x7FFFFFFFFFFFFFFF;
+    if (masked_mcause == 3) { // Interruption software
+      // TODO: Interruptions softwares
+    } else if (masked_mcause == 7) { // Interruption timer
+      // On affiche le temps depuis le démarrage en haut à droite
+      uint64_t n = nbr_secondes();
+      char time[18];
+      sprintf(time, "[%02lu:%02lu:%02lu]", (n / 3600UL) % 100, (n / 60) % 60,
+              n % 60);
+      display_top_right(time, 10);
+
+      // On acquitte l'IRQ et on réenclenche la prochaine interruption du timer.
+      uint64_t next_timer_value = *(uint64_t *)CLINT_TIMER + IT_TICS_REMAINING;
+      *(uint64_t *)(CLINT_TIMER_CMP) = next_timer_value;
+    } else if (masked_mcause == 11) { // Interruption externe
+      // TODO: Interruptions externes
+    }
+  } else {
+    // TODO: Exceptions
+  }
+}
+
+// Initialise le vecteur d'interruption.
+void init_traitant(void traitant()) {
+  __asm__("csrw mtvec, %0" ::"r"(traitant));
+}
+
+// Autorise les interruptions du timer (et initialise la première)
+void enable_timer() {
+  // On démasque l'interruption du timer (et globale)
+  __asm__("csrs mie, %0" ::"r"(1 << IRQ_M_TMR));
+  enable_it();
+}
+
+/* ======================================================= */
 /* ===================== UTILITAIRES ===================== */
 /* ======================================================= */
 
@@ -327,46 +382,18 @@ void custom_sleep() {
 }
 
 void kernel_start() {
-  // init_uart();
-  // printf("> Test [printf UART] (1/1)\n");
-  // init_ecran();
-  // printf("Truc\nSalut\n1\t2\t3\nAB\bC\nBEEF\rRABBIT");
-  // for (int i = 0; i < 90; i++) {
-  //   printf("%d\n", i);
-  // }
-  // printf("Hello\n");
-  // // printf("\f");
-
   init_uart();
   init_ecran();
 
-  for (int i = 0; i < 10; i++) {
-    display_french_flag();
-  }
-  efface_ecran();
+  init_traitant(traitant);
+  enable_timer();
 
-  for (int i = 0; i < 13000; i++) {
-    traite_car('a');
+  for (int i = 0; i < 100; i++) {
+    printf("Coucou\t");
+    custom_sleep();
+    custom_sleep();
     custom_sleep();
   }
-  custom_sleep();
-  traite_car('g');
-  custom_sleep();
-  traite_car('g');
-  custom_sleep();
-  traite_car('g');
-  custom_sleep();
-  for (int i = 0; i < 13000; i++) {
-    traite_car('\t');
-    traite_car('g');
-    custom_sleep();
-  }
-  // for (int i = 0; i < 130; i++) {
-  //   // traite_car('\n');
-  //   traite_car('g');
-  //   custom_sleep();
-  // }
-  // traite_car('z');
 
   /* on ne doit jamais sortir de kernel_start */
   while (1) {
