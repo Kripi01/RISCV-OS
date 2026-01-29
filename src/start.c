@@ -320,36 +320,29 @@ uint32_t nbr_secondes() {
 }
 
 // Gère (ou masque) les interruptions.
+// WARNING: Ne gère pas les exceptions, le bit 63 de mcause est ignoré!!
 void trap_handler(uint64_t mcause, uint64_t mie, uint64_t mip) {
-  // BUG: Les tests sur le serveur appellent trap_handler avec mcause=7, ce
-  // n'est pas comme sur le diapo, le bit 63 n'est pas à 1.
-  if (mcause >> 63 ||
-      (mcause == 7)) { // C'est bien une interruption (et pas une exception)
-    if ((mie & mip) == 0) { // Interruption masquée
-      return;
-    }
+  uint64_t masked_mcause = mcause & 0x7FFFFFFFFFFFFFFF;
+  if ((mie & mip) == 0) { // Interruption masquée
+    return;
+  }
 
-    uint64_t masked_mcause = mcause & 0x7FFFFFFFFFFFFFFF;
-    if (masked_mcause == 3) { // Interruption software
-      // TODO: Interruptions softwares
-    } else if (masked_mcause == 7) { // Interruption timer
-      time++;
+  if (masked_mcause == 3) { // Interruption software
+    // TODO: Interruptions softwares
+  } else if (masked_mcause == 7) { // Interruption timer
+    time++;
 
-      // On affiche le temps depuis le démarrage en haut à droite
-      uint32_t n = nbr_secondes();
-      char time[18];
-      sprintf(time, "[%02u:%02u:%02u]", (n / 3600) % 100, (n / 60) % 60,
-              n % 60);
-      display_top_right(time, 10);
+    // On affiche le temps depuis le démarrage en haut à droite
+    uint32_t n = nbr_secondes();
+    char time[18];
+    sprintf(time, "[%02u:%02u:%02u]", (n / 3600) % 100, (n / 60) % 60, n % 60);
+    display_top_right(time, 10);
 
-      // On acquitte l'IRQ et on réenclenche la prochaine interruption du timer.
-      uint64_t next_timer_value = *(uint64_t *)CLINT_TIMER + IT_TICS_REMAINING;
-      *(uint64_t *)(CLINT_TIMER_CMP) = next_timer_value;
-    } else if (masked_mcause == 11) { // Interruption externe
-      // TODO: Interruptions externes
-    }
-  } else {
-    // TODO: Exceptions
+    // On acquitte l'IRQ et on réenclenche la prochaine interruption du timer.
+    uint64_t next_timer_value = *(uint64_t *)CLINT_TIMER + IT_TICS_REMAINING;
+    *(uint64_t *)(CLINT_TIMER_CMP) = next_timer_value;
+  } else if (masked_mcause == 11) { // Interruption externe
+    // TODO: Interruptions externes
   }
 }
 
