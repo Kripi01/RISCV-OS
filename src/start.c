@@ -356,7 +356,8 @@ void init_traitant(void traitant()) {
 // Autorise les interruptions du timer (et initialise la première)
 void enable_timer() {
   // On démasque l'interruption du timer (et globale)
-  __asm__("csrs mie, %0" ::"r"(1 << IRQ_M_TMR));
+  // __asm__("csrs mie, %0" ::"r"(1 << IRQ_M_TMR));
+  __asm__("csrw mie, %0" ::"r"(0xFFF));
   enable_it();
 }
 
