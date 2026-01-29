@@ -1,7 +1,9 @@
 #include "cpu.h"
 #include "interrupt.h"
+#include "process.h"
 #include "screen.h"
 #include "uart.h"
+#include <stdint.h>
 #include <stdio.h>
 
 /* ======================================================= */
@@ -40,17 +42,35 @@ void custom_sleep() {
   }
 }
 
+void idle() {
+  for (;;) {
+    printf("[%s] pid = %li\n", mon_nom(), mon_pid());
+    ordonnance();
+  }
+}
+
+void proc1() {
+  for (;;) {
+    printf("[%s] pid = %li\n", mon_nom(), mon_pid());
+    ordonnance();
+  }
+}
+
 void kernel_start() {
   init_uart();
   init_ecran();
 
   init_traitant(mon_traitant);
-  enable_timer();
-  enable_it();
+  // NOTE: désactiver les interruptions au global ne suffit pas, il faut aussi
+  // désactiver le timer car sinon, le CPU va appeler trap_handler (qui va
+  // refuser l'IRQ car masquée) mais cela réveille le CPU du hlt de proc1
+  // enable_timer();
+  // enable_it();
 
-  for (int i = 0; i < 100; i++) {
-    printf("Bonjour\t");
-  }
+  init_proc();
+  cree_processus(proc1, "proc1");
+
+  idle();
 
   /* on ne doit jamais sortir de kernel_start */
   while (1) {
