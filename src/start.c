@@ -301,6 +301,7 @@ void console_putbytes(const char *s, int len) {
 #define IT_FREQ 20
 #define IT_TICS_REMAINING TIMER_FREQ / IT_FREQ
 
+static uint32_t time = 0;
 extern void mon_traitant();
 
 // Affiche le string s sur la ligne en haut à droite.
@@ -315,8 +316,7 @@ void display_top_right(const char *s, int len) {
 // Renvoie le nombre de secondes depuis le lancement du programme.
 uint32_t nbr_secondes() {
   // return *(uint64_t *)(CLINT_TIMER) / TIMER_FREQ;
-  static uint32_t time = 0;
-  return (time++) / IT_FREQ;
+  return time / IT_FREQ;
 }
 
 // Gère (ou masque) les interruptions.
@@ -330,6 +330,8 @@ void trap_handler(uint64_t mcause, uint64_t mie, uint64_t mip) {
     if (masked_mcause == 3) { // Interruption software
       // TODO: Interruptions softwares
     } else if (masked_mcause == 7) { // Interruption timer
+      time++;
+
       // On affiche le temps depuis le démarrage en haut à droite
       uint32_t n = nbr_secondes();
       char time[18];
