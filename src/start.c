@@ -358,6 +358,10 @@ void enable_timer() {
   // On démasque l'interruption du timer (et globale)
   __asm__("csrs mie, %0" ::"r"(1 << IRQ_M_TMR));
   enable_it();
+
+  // l'envoi de la première interruption par le timer
+  uint64_t next_timer_value = *(uint64_t *)CLINT_TIMER + IT_TICS_REMAINING;
+  *(uint64_t *)(CLINT_TIMER_CMP) = next_timer_value;
 }
 
 /* ======================================================= */
