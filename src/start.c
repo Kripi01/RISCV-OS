@@ -301,7 +301,7 @@ void console_putbytes(const char *s, int len) {
 #define IT_FREQ 20
 #define IT_TICS_REMAINING TIMER_FREQ / IT_FREQ
 
-extern void traitant();
+extern void mon_traitant();
 
 // Affiche le string s sur la ligne en haut à droite.
 // WARNING: len (la taille de s) ne doit pas dépasser la taille d'une ligne car
@@ -389,14 +389,11 @@ void kernel_start() {
   init_uart();
   init_ecran();
 
-  init_traitant(traitant);
+  init_traitant(mon_traitant);
   enable_timer();
 
   for (int i = 0; i < 100; i++) {
-    printf("Coucou\t");
-    custom_sleep();
-    custom_sleep();
-    custom_sleep();
+    printf("Bonjour\t");
   }
 
   /* on ne doit jamais sortir de kernel_start */
