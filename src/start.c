@@ -339,11 +339,8 @@ void trap_handler(uint64_t mcause, uint64_t mie, uint64_t mip) {
     display_top_right(time, 10);
 
     // On acquitte l'IRQ et on réenclenche la prochaine interruption du timer.
-    // NOTE: La solution proposée par le sujet est: TIMER_CMP = TIMER +
-    // TICS_REMAINING mais la gestion de l'interruption (trap_handler,
-    // traitant.S, ...) et pendant ce temps le timer tourne, ce qui crée un
-    // décalage à chaque interruption.
-    *(uint64_t *)(CLINT_TIMER_CMP) += IT_TICS_REMAINING;
+    uint64_t next_timer_value = *(uint64_t *)CLINT_TIMER + IT_TICS_REMAINING;
+    *(uint64_t *)(CLINT_TIMER_CMP) = next_timer_value;
   } else if (masked_mcause == 11) { // Interruption externe
     // TODO: Interruptions externes
   }
