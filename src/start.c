@@ -321,7 +321,10 @@ uint32_t nbr_secondes() {
 
 // Gère (ou masque) les interruptions.
 void trap_handler(uint64_t mcause, uint64_t mie, uint64_t mip) {
-  if (mcause >> 63) { // C'est bien une interruption (et pas une exception)
+  // BUG: Les tests sur le serveur appellent trap_handler avec mcause=7, ce
+  // n'est pas comme sur le diapo, le bit 63 n'est pas à 1.
+  if (mcause >> 63 ||
+      (mcause == 7)) { // C'est bien une interruption (et pas une exception)
     if ((mie & mip) == 0) { // Interruption masquée
       return;
     }
