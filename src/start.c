@@ -313,9 +313,9 @@ void display_top_right(const char *s, int len) {
 }
 
 // Renvoie le nombre de secondes depuis le lancement du programme.
-uint64_t nbr_secondes() {
+uint32_t nbr_secondes() {
   // return *(uint64_t *)(CLINT_TIMER) / TIMER_FREQ;
-  static uint64_t time = 0;
+  static uint32_t time = 0;
   return (time++) / IT_FREQ;
 }
 
@@ -331,9 +331,9 @@ void trap_handler(uint64_t mcause, uint64_t mie, uint64_t mip) {
       // TODO: Interruptions softwares
     } else if (masked_mcause == 7) { // Interruption timer
       // On affiche le temps depuis le démarrage en haut à droite
-      uint64_t n = nbr_secondes();
+      uint32_t n = nbr_secondes();
       char time[18];
-      sprintf(time, "[%02lu:%02lu:%02lu]", (n / 3600UL) % 100, (n / 60) % 60,
+      sprintf(time, "[%02u:%02u:%02u]", (n / 3600) % 100, (n / 60) % 60,
               n % 60);
       display_top_right(time, 10);
 
