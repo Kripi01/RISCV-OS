@@ -1,4 +1,5 @@
 #include "interrupt.h"
+#include "process.h"
 #include "screen.h"
 #include <stdio.h>
 
@@ -33,6 +34,9 @@ void trap_handler(uint64_t mcause, uint64_t mie, uint64_t mip) {
     // On acquitte l'IRQ et on réenclenche la prochaine interruption du timer.
     uint64_t next_timer_value = *(uint64_t *)CLINT_TIMER + IT_TICS_REMAINING;
     *(uint64_t *)(CLINT_TIMER_CMP) = next_timer_value;
+
+    // On change de processus à chaque interruption timer.
+    ordonnance();
   } else if (masked_mcause == 11) { // Interruption externe
     // TODO: Interruptions externes
   }

@@ -52,10 +52,7 @@ ctx_sw_fin_prologue:
   ld t0, 136(a1)
   csrw mstatus, t0
 
-  # Enfin, on jump à ra, qui est "l'adresse" du processus 2
+  # Enfin, on jump à ra, qui est "l'adresse" du processus 2.
   ret # jr ra
-  # TODO: si on a un context switcher provoqué par une interruption timer, alors 
-  # il faut utiliser mepc, et donc mret
 
 ctx_sw_debut_epilogue:
-
