@@ -43,15 +43,19 @@ int64_t cree_processus(void code(), char *nom) {
   // '\0' pour afficher l'état des processus ensuite.
   snprintf(p->nom, MAX_CHAR_NAME, "%s", nom);
 
-  // On stocke l'adresse de la fonction (l'adresse de la première instruction)
+  // On stocke l'adresse de proc_launcher (l'adresse de la première instruction)
   // dans l'emplacement ra du contexte associé pour que lors du premier appel de
   // ctx_sw, ret saute au début de la fonction.
-  p->contexte[0] = (uint64_t)code;
+  p->contexte[0] = (uint64_t)proc_launcher;
 
-  // À la création, la pile du processus est vide (non initialisée).
-  // Le sp du processus est donc juste après la dernière adresse de p->pile car
-  // le sommet de la pile est la fin de la zone mémoire allouée.
-  p->contexte[1] = (uint64_t)(p->pile + PROCESS_STACK_SIZE);
+  // Il faut stocker l'argument de proc_launcher dans la pile pour que ctx_sw
+  // puisse appeler proc_launcher avec le bon argument. À la création, la pile
+  // du processus est quasi vide. Le sp du processus est donc
+  // à la dernière adresse de p->pile car le sommet de la pile est la
+  // fin de la zone mémoire allouée et on stocke seulement l'argument de
+  // proc_launcher
+  p->contexte[1] = (uint64_t)(p->pile + (PROCESS_STACK_SIZE - 1));
+  p->pile[PROCESS_STACK_SIZE - 1] = (uint64_t)code;
 
   next_pid++;
   return p->pid;
@@ -92,12 +96,16 @@ int64_t mon_pid() { return actif->pid; }
 // Renvoie le nom du processus en cours d'exécution.
 char *mon_nom() { return actif->nom; }
 
+// Endort le processus actif et change de processus.
+// WARNING: Cette fonction ne doit jamais être appelée sur idle.
 void dors(uint64_t nbr_secs) {
   actif->etat = ENDORMI;
   actif->heure_reveil = nbr_secondes() + nbr_secs;
   ordonnance();
 }
 
+// Kill le processus actif et change de processus.
+// WARNING: Cette fonction ne doit jamais être appelée sur idle.
 void fin_processus() {
   actif->etat = MORT;
   ordonnance();
@@ -126,4 +134,13 @@ void affiche_etats() {
   for (int i = 0; i < pos; i++) {
     ecrit_car(0, i, s[i], WHITE, BLACK);
   }
+}
+
+// Lance le processus en argument et s'assure de la terminaison de celui-ci à la
+// fin de son exécution.
+// NOTE: Comme idle ne termine jamais, on arrive jamais à l'instruction
+// fin_processus, donc idle n'est jamais killed.
+void proc_launcher(void proc()) {
+  proc();
+  fin_processus();
 }

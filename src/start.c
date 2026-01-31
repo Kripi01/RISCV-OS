@@ -50,7 +50,6 @@ void proc1() {
            mon_pid());
     dors(2);
   }
-  fin_processus();
 }
 
 void proc2() {
@@ -59,7 +58,6 @@ void proc2() {
            mon_pid());
     dors(3);
   }
-  fin_processus();
 }
 
 void proc3() {
@@ -68,7 +66,6 @@ void proc3() {
            mon_pid());
     dors(5);
   }
-  fin_processus();
 }
 
 void kernel_start() {

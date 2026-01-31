@@ -31,6 +31,7 @@ char *mon_nom();
 void dors(uint64_t nbr_secs);
 void fin_processus();
 void affiche_etats();
+void proc_launcher(void proc());
 
 extern void idle();
 extern void ctx_sw(uint64_t *contexte1, uint64_t *contexte2);

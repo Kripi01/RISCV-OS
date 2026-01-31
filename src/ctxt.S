@@ -52,7 +52,9 @@ ctx_sw_fin_prologue:
   ld t0, 136(a1)
   csrw mstatus, t0
 
-  # Enfin, on jump à ra, qui est "l'adresse" du processus 2.
-  ret # jr ra
+  # Enfin, on donne en argument à proc_launcher (l'adresse de ra) la valeur de la
+  # fonction du processus 2, qui est la première valeur de la pile (cf cree_processus)
+  ld a0, 0(sp)
+  ret # Puis on jump vers ra, i.e. vers proc_launcher avec les bons arguments
 
 ctx_sw_debut_epilogue:
