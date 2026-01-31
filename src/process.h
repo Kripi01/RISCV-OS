@@ -11,6 +11,7 @@ typedef enum {
   ELU,
   ACTIVABLE,
   ENDORMI,
+  MORT,
 } Status;
 
 typedef struct {
@@ -28,6 +29,8 @@ void ordonnance();
 int64_t mon_pid();
 char *mon_nom();
 void dors(uint64_t nbr_secs);
+void fin_processus();
+void affiche_etats();
 
 extern void idle();
 extern void ctx_sw(uint64_t *contexte1, uint64_t *contexte2);

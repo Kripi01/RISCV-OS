@@ -84,7 +84,8 @@ void pixel(uint32_t x, uint32_t y, uint32_t couleur) {
 }
 
 // Écrit le caractère c aux coordonnées (lignes et colonnes) et avec les
-// couleurs spécifiées. Ne prend pas en charge les caractères de contrôle.
+// couleurs spécifiées. Ne prend pas en charge les caractères de contrôle et ne
+// modifie pas le curseur (contrairement à traite_car)
 void ecrit_car(uint32_t lig, uint32_t col, char c, uint32_t char_color,
                uint32_t bg_color) {
   char *f = font8x8_basic[(uint8_t)c];
@@ -139,21 +140,17 @@ void efface_ecran() {
 // Fait remonter d'une ligne l'affichage à l'écran
 void defilement() {
   if (cursor_lig > 1) {
-    uint64_t bytes_per_pixel = 4;
-    uint64_t font_height = 8;
-    uint64_t bytes_per_line = DISPLAY_WIDTH * bytes_per_pixel * font_height;
-
     // Attention, on ne déplace pas l'horloge (la ligne 0)
-    memmove((uint32_t *)(BOCHS_DISPLAY_BASE_ADDRESS + bytes_per_line),
-            (uint32_t *)(BOCHS_DISPLAY_BASE_ADDRESS + 2 * bytes_per_line),
-            DISPLAY_WIDTH * (DISPLAY_HEIGHT - 2 * font_height) *
-                bytes_per_pixel);
+    memmove((uint32_t *)(BOCHS_DISPLAY_BASE_ADDRESS + BYTES_PER_LINE),
+            (uint32_t *)(BOCHS_DISPLAY_BASE_ADDRESS + 2 * BYTES_PER_LINE),
+            DISPLAY_WIDTH * (DISPLAY_HEIGHT - 2 * FONT_HEIGHT) *
+                BYTES_PER_PIXEL);
 
     // Il faut clear la dernière ligne
     memset((uint32_t *)(BOCHS_DISPLAY_BASE_ADDRESS +
-                        (DISPLAY_HEIGHT - font_height) * DISPLAY_WIDTH *
-                            bytes_per_pixel),
-           BLACK, bytes_per_line);
+                        (DISPLAY_HEIGHT - FONT_HEIGHT) * DISPLAY_WIDTH *
+                            BYTES_PER_PIXEL),
+           BLACK, BYTES_PER_LINE);
 
     // On actualise la position du curseur
     cursor_lig -= 1;

@@ -45,27 +45,30 @@ void idle() {
 }
 
 void proc1() {
-  for (;;) {
+  for (int32_t i = 0; i < 2; i++) {
     printf("[temps = %u] processus %s pid = %li\n", nbr_secondes(), mon_nom(),
            mon_pid());
     dors(2);
   }
+  fin_processus();
 }
 
 void proc2() {
-  for (;;) {
+  for (int32_t i = 0; i < 2; i++) {
     printf("[temps = %u] processus %s pid = %li\n", nbr_secondes(), mon_nom(),
            mon_pid());
     dors(3);
   }
+  fin_processus();
 }
 
 void proc3() {
-  for (;;) {
+  for (int32_t i = 0; i < 2; i++) {
     printf("[temps = %u] processus %s pid = %li\n", nbr_secondes(), mon_nom(),
            mon_pid());
     dors(5);
   }
+  fin_processus();
 }
 
 void kernel_start() {

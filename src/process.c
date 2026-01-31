@@ -1,6 +1,9 @@
 #include "process.h"
 #include "interrupt.h"
+#include "platform.h"
+#include "screen.h"
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
 static int next_pid = 0;
@@ -15,7 +18,7 @@ void init_proc() {
   // processus actif, car le système ne doit jamais s'arrêter.
   process_t *p = &scheduler[0];
   p->pid = 0;
-  strncpy(p->nom, "idle", MAX_CHAR_NAME);
+  snprintf(p->nom, MAX_CHAR_NAME, "idle");
   p->etat = ELU;
   p->contexte[0] = (uint64_t)idle;
   p->contexte[1] = (uint64_t)(p->pile + PROCESS_STACK_SIZE);
@@ -36,7 +39,9 @@ int64_t cree_processus(void code(), char *nom) {
   process_t *p = &scheduler[next_pid];
   p->pid = next_pid;
   p->etat = ACTIVABLE;
-  strncpy(p->nom, nom, MAX_CHAR_NAME);
+  // On utilise snprintf et pas strncpy car on veut le caractère de terminaison
+  // '\0' pour afficher l'état des processus ensuite.
+  snprintf(p->nom, MAX_CHAR_NAME, "%s", nom);
 
   // On stocke l'adresse de la fonction (l'adresse de la première instruction)
   // dans l'emplacement ra du contexte associé pour que lors du premier appel de
@@ -61,23 +66,31 @@ void ordonnance() {
   // L'heure de réveil est correcte que lorsque le processus est endormi. Sinon,
   // elle est périmée.
   uint64_t n = nbr_secondes();
-  while (next_process->etat == ENDORMI && next_process->heure_reveil > n) {
+  while (next_process->etat == MORT ||
+         (next_process->etat == ENDORMI && next_process->heure_reveil > n)) {
     next_idx++;
     next_process = &scheduler[next_idx % next_pid];
   }
 
-  // Si l'état actif n'a pas été endormi, alors on le met en activable, sinon on
-  // le laisse endormi
-  actif->etat = actif->etat == ELU ? ACTIVABLE : ENDORMI;
+  // Si l'état actif n'a pas été endormi ou tué, alors on le met en activable,
+  // sinon on le laisse endormi ou tué
+  actif->etat = actif->etat == ELU ? ACTIVABLE : actif->etat;
   next_process->etat = ELU;
 
   process_t *prev_actif = actif;
   actif = next_process;
 
+  affiche_etats();
+
   // WARNING: Il faut exécuter ctx_sw en dernier car ctx_sw modifie les
   // registres et ne les stocke pas sur la pile.
   ctx_sw(prev_actif->contexte, next_process->contexte);
 }
+
+// Renvoie le pid du processus en cours d'exécution.
+int64_t mon_pid() { return actif->pid; }
+// Renvoie le nom du processus en cours d'exécution.
+char *mon_nom() { return actif->nom; }
 
 void dors(uint64_t nbr_secs) {
   actif->etat = ENDORMI;
@@ -85,7 +98,32 @@ void dors(uint64_t nbr_secs) {
   ordonnance();
 }
 
-// Renvoie le pid du processus en cours d'exécution.
-int64_t mon_pid() { return actif->pid; }
-// Renvoie le nom du processus en cours d'exécution.
-char *mon_nom() { return actif->nom; }
+void fin_processus() {
+  actif->etat = MORT;
+  ordonnance();
+}
+
+// Affiche l'état de chaque processus en haut à gauche de l'écran
+void affiche_etats() {
+  const uint64_t len_buffer = 100;
+
+  // On vide la ligne d'abord
+  for (uint64_t i = 0; i < FONT_HEIGHT; i++) {
+    memset((uint32_t *)(BOCHS_DISPLAY_BASE_ADDRESS +
+                        i * DISPLAY_WIDTH * BYTES_PER_PIXEL),
+           BLACK, BYTES_PER_PIXEL * len_buffer * FONT_WIDTH);
+  }
+
+  char *nom_etats[] = {"ELU", "ACTIVABLE", "ENDORMI", "MORT"};
+
+  char s[200];
+  int pos = 0;
+  for (int i = 0; i < next_pid; i++) {
+    process_t *p = &scheduler[i];
+    pos += sprintf(s + pos, "%s:%s ", p->nom, nom_etats[p->etat]);
+  }
+
+  for (int i = 0; i < pos; i++) {
+    ecrit_car(0, i, s[i], WHITE, BLACK);
+  }
+}

@@ -7,6 +7,10 @@
 // Caractéristiques de l'écran
 #define DISPLAY_NB_COL (DISPLAY_WIDTH / 8)
 #define DISPLAY_NB_LIG (DISPLAY_HEIGHT / 8)
+#define BYTES_PER_PIXEL 4
+#define FONT_HEIGHT 8
+#define FONT_WIDTH 8
+#define BYTES_PER_LINE (DISPLAY_WIDTH * BYTES_PER_PIXEL * FONT_HEIGHT)
 
 // Couleurs
 #define RED 0x00ff0000
