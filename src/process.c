@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 
-static int next_pid = 0;
+static int max_nb_pid = 0;
 static process_t scheduler[MAX_NB_PROCESSES];
 static process_t *actif;
 
@@ -24,24 +24,40 @@ void init_proc() {
   p->contexte[1] = (uint64_t)(p->pile + PROCESS_STACK_SIZE);
 
   actif = p;
-  next_pid = 1;
+  max_nb_pid = 1;
 }
 
 // Renvoie le pid du processus créé, ou -1 en cas d'erreur
 int64_t cree_processus(void code(), char *nom) {
-  if (next_pid >= MAX_NB_PROCESSES) {
+  if (max_nb_pid >= MAX_NB_PROCESSES) {
     return -1;
   }
 
-  // NOTE: p.contexte et p.pile ne sont remplis que partiellement lors de la
-  // création du processus. Ils seront complétés par ctx_sw après le premier
-  // context switch.
-  process_t *p = &scheduler[next_pid];
-  p->pid = next_pid;
+  // On prend un PID de processus MORT ou un nouveau PID si aucun processus mort
+  // (dans ce cas, on incrémente le nombre max de PID "en circulation")
+  int new_pid = -1;
+  for (int i = 0; i < max_nb_pid; i++) {
+    if ((&scheduler[i])->etat == MORT) {
+      new_pid = i;
+      break;
+    }
+  }
+
+  if (new_pid == -1) {
+    new_pid = max_nb_pid;
+    max_nb_pid++;
+  }
+
+  process_t *p = &scheduler[new_pid];
+  p->pid = new_pid;
   p->etat = ACTIVABLE;
   // On utilise snprintf et pas strncpy car on veut le caractère de terminaison
   // '\0' pour afficher l'état des processus ensuite.
   snprintf(p->nom, MAX_CHAR_NAME, "%s", nom);
+
+  // NOTE: p.contexte et p.pile ne sont remplis que partiellement lors de la
+  // création du processus. Ils seront complétés par ctx_sw après le premier
+  // context switch.
 
   // On stocke l'adresse de proc_launcher (l'adresse de la première instruction)
   // dans l'emplacement ra du contexte associé pour que lors du premier appel de
@@ -57,7 +73,6 @@ int64_t cree_processus(void code(), char *nom) {
   p->contexte[1] = (uint64_t)(p->pile + (PROCESS_STACK_SIZE - 1));
   p->pile[PROCESS_STACK_SIZE - 1] = (uint64_t)code;
 
-  next_pid++;
   return p->pid;
 }
 
@@ -65,7 +80,7 @@ int64_t cree_processus(void code(), char *nom) {
 // à activer et provoque le changement de processus.
 void ordonnance() {
   uint64_t next_idx = actif->pid + 1;
-  process_t *next_process = &scheduler[next_idx % next_pid];
+  process_t *next_process = &scheduler[next_idx % max_nb_pid];
   // On trouve le prochain processus (idle vérifie toujours ces conditions)
   // L'heure de réveil est correcte que lorsque le processus est endormi. Sinon,
   // elle est périmée.
@@ -73,7 +88,7 @@ void ordonnance() {
   while (next_process->etat == MORT ||
          (next_process->etat == ENDORMI && next_process->heure_reveil > n)) {
     next_idx++;
-    next_process = &scheduler[next_idx % next_pid];
+    next_process = &scheduler[next_idx % max_nb_pid];
   }
 
   // Si l'état actif n'a pas été endormi ou tué, alors on le met en activable,
@@ -113,7 +128,9 @@ void fin_processus() {
 
 // Affiche l'état de chaque processus en haut à gauche de l'écran
 void affiche_etats() {
-  const uint64_t len_buffer = 100;
+  // La taille du buffer est choisie pour que ça n'écrase pas l'heure (le max
+  // sans écraser étant 118)
+  const uint64_t len_buffer = 115;
 
   // On vide la ligne d'abord
   for (uint64_t i = 0; i < FONT_HEIGHT; i++) {
@@ -124,14 +141,19 @@ void affiche_etats() {
 
   char *nom_etats[] = {"ELU", "ACTIVABLE", "ENDORMI", "MORT"};
 
-  char s[200];
-  int pos = 0;
-  for (int i = 0; i < next_pid; i++) {
+  char s[len_buffer];
+  uint64_t pos = 0;
+  for (int i = 0; i < max_nb_pid; i++) {
     process_t *p = &scheduler[i];
-    pos += sprintf(s + pos, "%s:%s ", p->nom, nom_etats[p->etat]);
+    // On n'affiche pas les processus morts
+    if (p->etat != MORT) {
+      int remaining = len_buffer - pos;
+      pos += snprintf(s + pos, remaining, "%s(PID=%d):%s ", p->nom, p->pid,
+                      nom_etats[p->etat]);
+    }
   }
 
-  for (int i = 0; i < pos; i++) {
+  for (uint64_t i = 0; i < pos; i++) {
     ecrit_car(0, i, s[i], WHITE, BLACK);
   }
 }

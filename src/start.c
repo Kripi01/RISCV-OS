@@ -58,6 +58,7 @@ void proc2() {
            mon_pid());
     dors(3);
   }
+  cree_processus(proc1, "new_proc1");
 }
 
 void proc3() {
@@ -66,6 +67,7 @@ void proc3() {
            mon_pid());
     dors(5);
   }
+  cree_processus(proc2, "new_proc2");
 }
 
 void kernel_start() {
