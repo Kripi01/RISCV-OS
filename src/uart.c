@@ -1,5 +1,7 @@
 #include "platform.h"
 
+// NOTE: Tous les registres de l'UART sont sur 8 bits
+
 void init_uart() {
   // NOTE: UART_BAUD_RATE et UART_CLOCK_FREQ sont déjà correctement configurés
   // dans platform.h
@@ -24,6 +26,6 @@ void init_uart() {
 }
 
 void traite_car_uart(char c) {
-  uint8_t *addr = (uint8_t *)(UART_BASE + UART_THR);
+  volatile uint8_t *addr = (uint8_t *)(UART_BASE + UART_THR);
   *addr = c;
 }

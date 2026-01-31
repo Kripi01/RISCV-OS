@@ -36,4 +36,4 @@ void proc_launcher(void proc());
 extern void idle();
 extern void ctx_sw(uint64_t *contexte1, uint64_t *contexte2);
 
-#endif
+#endif // __PROCESS_H__

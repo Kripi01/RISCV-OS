@@ -1,5 +1,6 @@
 #include "cpu.h"
 #include "interrupt.h"
+#include "keyboard.h"
 #include "process.h"
 #include "screen.h"
 #include "uart.h"
@@ -38,6 +39,9 @@ void display_french_flag() {
 
 void idle() {
   for (;;) {
+    int c = getchar_uart();
+    printf("%c", c);
+
     enable_it();
     hlt();
     disable_it();
@@ -79,8 +83,8 @@ void kernel_start() {
 
   init_proc();
   cree_processus(proc1, "proc1");
-  cree_processus(proc2, "proc2");
-  cree_processus(proc3, "proc3");
+  // cree_processus(proc2, "proc2");
+  // cree_processus(proc3, "proc3");
 
   idle();
 
