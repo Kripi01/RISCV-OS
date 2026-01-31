@@ -1,6 +1,7 @@
 #include "interrupt.h"
 #include "process.h"
 #include "screen.h"
+#include <stdint.h>
 #include <stdio.h>
 
 static uint32_t time = 0;
@@ -32,8 +33,8 @@ void trap_handler(uint64_t mcause, uint64_t mie, uint64_t mip) {
     display_top_right(time_str, 10);
 
     // On acquitte l'IRQ et on réenclenche la prochaine interruption du timer.
-    uint64_t next_timer_value = *(uint64_t *)CLINT_TIMER + IT_TICS_REMAINING;
-    *(uint64_t *)(CLINT_TIMER_CMP) = next_timer_value;
+    *(uint64_t *)(CLINT_TIMER_CMP) =
+        *(uint64_t *)CLINT_TIMER + IT_TICS_REMAINING;
 
     // On change de processus à chaque interruption timer.
     ordonnance();

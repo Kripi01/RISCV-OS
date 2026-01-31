@@ -10,6 +10,7 @@
 typedef enum {
   ELU,
   ACTIVABLE,
+  ENDORMI,
 } Status;
 
 typedef struct {
@@ -18,6 +19,7 @@ typedef struct {
   Status etat;
   uint64_t contexte[18];
   uint64_t pile[PROCESS_STACK_SIZE];
+  uint64_t heure_reveil;
 } process_t;
 
 void init_proc();
@@ -25,6 +27,7 @@ int64_t cree_processus(void code(), char *nom);
 void ordonnance();
 int64_t mon_pid();
 char *mon_nom();
+void dors(uint64_t nbr_secs);
 
 extern void idle();
 extern void ctx_sw(uint64_t *contexte1, uint64_t *contexte2);

@@ -1,4 +1,5 @@
 #include "process.h"
+#include "interrupt.h"
 #include <stdint.h>
 #include <string.h>
 
@@ -54,15 +55,34 @@ int64_t cree_processus(void code(), char *nom) {
 // Implémente la politique d'ordonnancement en choisissant le prochain processus
 // à activer et provoque le changement de processus.
 void ordonnance() {
-  // WARNING: Il faut exécuter ctx_sw en dernier car ctx_sw modifie les
-  // registres et ne les stocke pas sur la pile.
-  process_t *next_process = &scheduler[(actif->pid + 1) % next_pid];
-  actif->etat = ACTIVABLE;
+  uint64_t next_idx = actif->pid + 1;
+  process_t *next_process = &scheduler[next_idx % next_pid];
+  // On trouve le prochain processus (idle vérifie toujours ces conditions)
+  // L'heure de réveil est correcte que lorsque le processus est endormi. Sinon,
+  // elle est périmée.
+  uint64_t n = nbr_secondes();
+  while (next_process->etat == ENDORMI && next_process->heure_reveil > n) {
+    next_idx++;
+    next_process = &scheduler[next_idx % next_pid];
+  }
+
+  // Si l'état actif n'a pas été endormi, alors on le met en activable, sinon on
+  // le laisse endormi
+  actif->etat = actif->etat == ELU ? ACTIVABLE : ENDORMI;
   next_process->etat = ELU;
 
   process_t *prev_actif = actif;
   actif = next_process;
+
+  // WARNING: Il faut exécuter ctx_sw en dernier car ctx_sw modifie les
+  // registres et ne les stocke pas sur la pile.
   ctx_sw(prev_actif->contexte, next_process->contexte);
+}
+
+void dors(uint64_t nbr_secs) {
+  actif->etat = ENDORMI;
+  actif->heure_reveil = nbr_secondes() + nbr_secs;
+  ordonnance();
 }
 
 // Renvoie le pid du processus en cours d'exécution.

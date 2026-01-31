@@ -36,15 +36,8 @@ void display_french_flag() {
   }
 }
 
-void custom_sleep() {
-  for (volatile int i = 0; i < 100000; i++) {
-    // timeout
-  }
-}
-
 void idle() {
   for (;;) {
-    printf("[%s] pid = %li\n", mon_nom(), mon_pid());
     enable_it();
     hlt();
     disable_it();
@@ -53,28 +46,25 @@ void idle() {
 
 void proc1() {
   for (;;) {
-    printf("[%s] pid = %li\n", mon_nom(), mon_pid());
-    enable_it();
-    hlt();
-    disable_it();
+    printf("[temps = %u] processus %s pid = %li\n", nbr_secondes(), mon_nom(),
+           mon_pid());
+    dors(2);
   }
 }
 
 void proc2() {
   for (;;) {
-    printf("[%s] pid = %li\n", mon_nom(), mon_pid());
-    enable_it();
-    hlt();
-    disable_it();
+    printf("[temps = %u] processus %s pid = %li\n", nbr_secondes(), mon_nom(),
+           mon_pid());
+    dors(3);
   }
 }
 
 void proc3() {
   for (;;) {
-    printf("[%s] pid = %li\n", mon_nom(), mon_pid());
-    enable_it();
-    hlt();
-    disable_it();
+    printf("[temps = %u] processus %s pid = %li\n", nbr_secondes(), mon_nom(),
+           mon_pid());
+    dors(5);
   }
 }
 
