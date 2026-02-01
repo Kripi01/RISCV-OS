@@ -1,6 +1,28 @@
+// TODO: volatile
+
 #include "keyboard.h"
 #include "platform.h"
 #include <stdint.h>
+
+/* Configure le PLIC pour autoriser IRQ10 (UART)*/
+void configPLIC_for_UART() {
+  *(volatile uint32_t *)PLIC_ENABLE = 1 << 10;
+  /* La priorité de l'UART est fixée à 3 */
+  *(volatile uint32_t *)(PLIC_SOURCE + (10 << 2)) = 3;
+  /* On règle le seuil de déclenchement des interruptions à 0 (toutes priorité
+   * d'interruption) */
+  *(volatile uint32_t *)PLIC_TARGET = 0;
+}
+
+void enable_uart_interrupts() {
+  // On active les interruptions à la réception (RX) d'un caractère
+  *(uint8_t *)(UART_BASE + UART_IER) |= 0x1;
+
+  // On autorise les interruptions externes
+  __asm__("csrs mie, %0" ::"r"(1 << IRQ_M_EXT));
+
+  configPLIC_for_UART();
+}
 
 int getchar_uart() {
   // NOTE: La réception (et la config en général) de l'UART est activée dans

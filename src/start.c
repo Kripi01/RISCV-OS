@@ -39,9 +39,6 @@ void display_french_flag() {
 
 void idle() {
   for (;;) {
-    int c = getchar_uart();
-    printf("%c", c);
-
     enable_it();
     hlt();
     disable_it();
@@ -76,6 +73,7 @@ void proc3() {
 
 void kernel_start() {
   init_uart();
+  enable_uart_interrupts();
   init_ecran();
 
   init_traitant(mon_traitant);

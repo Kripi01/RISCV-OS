@@ -1,4 +1,6 @@
 #include "interrupt.h"
+#include "keyboard.h"
+#include "platform.h"
 #include "process.h"
 #include "screen.h"
 #include <stdint.h>
@@ -39,7 +41,21 @@ void trap_handler(uint64_t mcause, uint64_t mie, uint64_t mip) {
     // On change de processus à chaque interruption timer.
     ordonnance();
   } else if (masked_mcause == 11) { // Interruption externe
-    // TODO: Interruptions externes
+    // DOC: A read of zero indicates that no interrupts are pending. A non-zero
+    // read contains the id of the highest pending interrupt. A write to this
+    // register signals completion of the interrupt id writte
+
+    // On claim l'interruption en lisant le registre claim/complete.
+    uint32_t interrupt_id = *(volatile uint32_t *)PLIC_IRQ_CLAIM;
+    if (interrupt_id == 10) {
+      // On gère l'interruption de l'UART.
+      int c = getchar_uart();
+      printf("%c", c);
+
+      // On complète l'interruption en écrivant l'ID de l'interrupt dans le
+      // regsitre claim/complete.
+      *(volatile uint32_t *)PLIC_IRQ_CLAIM = interrupt_id;
+    }
   }
 }
 

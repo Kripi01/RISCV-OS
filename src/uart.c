@@ -1,4 +1,5 @@
 #include "platform.h"
+#include <stdint.h>
 
 // NOTE: Tous les registres de l'UART sont sur 8 bits
 
