@@ -23,6 +23,8 @@ uint64_t init_ecran();
 void pixel(uint32_t x, uint32_t y, uint32_t couleur);
 void ecrit_car(uint32_t lig, uint32_t col, char c, uint32_t char_color,
                uint32_t bg_color);
+int has_car(uint32_t lig, uint32_t col, uint32_t bg_color);
+void supprime_car(uint32_t bg_color);
 void place_curseur(uint32_t lig, uint32_t col);
 void efface_ecran();
 void defilement();

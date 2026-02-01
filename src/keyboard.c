@@ -3,7 +3,8 @@
 #include <stdint.h>
 
 int getchar_uart() {
-  // NOTE: La réception de l'UART est activée dans init_uart
+  // NOTE: La réception (et la config en général) de l'UART est activée dans
+  // init_uart
 
   // Bien que le registre d'écriture et de lecture ont la même adresse, ce sont
   // deux registres différents. Quand on fait une lecture, le Write Enable de la
@@ -18,8 +19,6 @@ int getchar_uart() {
   if (c == '\r' || c == '\n') {
     return '\n';
   }
-
-  // TODO: Implémenter la suppression de caractère (touche retour)
 
   return c;
 }

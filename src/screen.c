@@ -98,6 +98,54 @@ void ecrit_car(uint32_t lig, uint32_t col, char c, uint32_t char_color,
   }
 }
 
+// Supprime le caractère (si présent) aux coordonnées (lignes et colonnes) et
+// avec la couleur d'arrière plane spécifiée. Ne prend pas en charge les
+// caractères de contrôle et ne supprime pas le curseur. Ne remonte pas les
+// lignes.
+static void _supprime_car(uint32_t lig, uint32_t col, uint32_t bg_color) {
+  for (int y = 0; y < 8; y++) {
+    for (int x = 0; x < 8; x++) {
+      pixel(col * 8 + x, lig * 8 + y, bg_color);
+    }
+  }
+}
+
+// Indique si la case aux coordonnées indiquées possède un caractère.
+int has_car(uint32_t lig, uint32_t col, uint32_t bg_color) {
+  for (int y = 0; y < 8; y++) {
+    for (int x = 0; x < 8; x++) {
+      if ((*display_base)[y + lig * 8][x + col * 8] != bg_color) {
+        return 1;
+      }
+    }
+  }
+  return 0;
+}
+
+// Supprime le caractère (si présent) juste avant le curseur. Ne supprime pas le
+// curseur. Gère la suppression sur plusieurs lignes.
+void supprime_car(uint32_t bg_color) {
+  if (cursor_col > 0) {
+    uint32_t new_col = cursor_col - 1;
+    _supprime_car(cursor_lig, new_col, bg_color);
+    place_curseur(cursor_lig, new_col);
+  } else if (cursor_lig > 1) { // On ne veut pas supprimer la première ligne
+    uint32_t new_lig = cursor_lig - 1;
+    // On déplace le curseur sur le slot suivant le dernier caractère sur la
+    // ligne du dessus. Si aucun caractère n'est présent sur la ligne du dessus
+    // alors le curseur va au début de la ligne.
+    int x = DISPLAY_NB_COL - 1;
+    while (x >= 0) {
+      if (has_car(new_lig, x, bg_color) == 1) {
+        break;
+      }
+      x--;
+    }
+    _supprime_car(new_lig, x + 1, bg_color);
+    place_curseur(new_lig, x + 1);
+  }
+}
+
 // On enlève le curseur de sa position actuelle
 static void _supprime_curseur() {
   uint32_t y = cursor_lig * 8 + 7;
@@ -121,8 +169,8 @@ static void _place_curseur(uint32_t lig, uint32_t col) {
   }
 }
 
-// Déplace proprement le curseur aux coordonnées (lignes et colonnes) spécifiées
-// Acutalise les variables globales cursor_col et cursor_lig
+// Déplace proprement le curseur aux coordonnées (lignes et colonnes)
+// spécifiées. Acutalise les variables globales cursor_col et cursor_lig
 void place_curseur(uint32_t lig, uint32_t col) {
   _supprime_curseur();
   _place_curseur(lig, col);
@@ -163,9 +211,9 @@ void traite_car(char c) {
   uint8_t uc = (uint8_t)c;
   // Caractère imprimable
   if (32 <= uc && uc <= 126) {
-    // NOTE: On est obligé de découper la gestion du curseur pour ne pas écraser
-    // le curseur avec le caractère (ce qui pose problème quand on veut
-    // supprimer le curseur ensuite -> inversion des couleurs)
+    // NOTE: On est obligé de découper la gestion du curseur pour ne pas
+    // écraser le curseur avec le caractère (ce qui pose problème quand on
+    // veut supprimer le curseur ensuite -> inversion des couleurs)
     _supprime_curseur();
 
     uint32_t new_lig = cursor_lig;
@@ -222,6 +270,10 @@ void traite_car(char c) {
     case 13: // \r (déplace le curseur sur la ligne actuelle, colonne 0)
       place_curseur(cursor_lig, 0);
       break;
+    case 127: // SUPPR supprime le caractère courant (et déplace le curseur d'un
+              // cran en arrière)
+      supprime_car(BLACK);
+      break;
     default: // Pour les autres caractères, on ne fait rien
       break;
     }
@@ -229,8 +281,8 @@ void traite_car(char c) {
 }
 
 // Affiche le string s sur la ligne en haut à droite.
-// WARNING: len (la taille de s) ne doit pas dépasser la taille d'une ligne car
-// on ne gère pas les caractères de contrôle.
+// WARNING: len (la taille de s) ne doit pas dépasser la taille d'une ligne
+// car on ne gère pas les caractères de contrôle.
 void display_top_right(const char *s, int len) {
   for (int i = 0; i < len; i++) {
     ecrit_car(0, DISPLAY_NB_COL - (len - i), s[i], WHITE, BLACK);
