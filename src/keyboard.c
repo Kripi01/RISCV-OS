@@ -1,5 +1,3 @@
-// TODO: volatile
-
 #include "keyboard.h"
 #include "platform.h"
 #include <stdint.h>
@@ -16,7 +14,7 @@ void configPLIC_for_UART() {
 
 void enable_uart_interrupts() {
   // On active les interruptions à la réception (RX) d'un caractère
-  *(uint8_t *)(UART_BASE + UART_IER) |= 0x1;
+  *(volatile uint8_t *)(UART_BASE + UART_IER) |= 0x1;
 
   // On autorise les interruptions externes
   __asm__("csrs mie, %0" ::"r"(1 << IRQ_M_EXT));
@@ -34,8 +32,7 @@ int getchar_uart() {
   // à 1. L'UART dirige vers un registre différent selon la valeur de WE et
   // comme une mémoire est accessible en lecture OU EXCLUSIF en écriture à un
   // instant donné, il n'y a pas de problèmes.
-  volatile uint8_t *addr = (uint8_t *)(UART_BASE + UART_RBR);
-  char c = *addr;
+  char c = *(volatile uint8_t *)(UART_BASE + UART_RBR);
   // On gère le problème du 'Entrée' interprété comme un CR et non comme un LF
   // (ou CRLF)
   if (c == '\r' || c == '\n') {

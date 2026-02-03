@@ -18,15 +18,15 @@ uint64_t init_ecran() {
   // On essaie tous les devices de 0 à 31 et on prend celui qui a le Device ID à
   // 0x1111 et le Vendor ID à 0x1234
   int found = 0;
-  uint16_t *device_addr; // NOTE: On pointe sur des uint16_t car c'est la plus
-                         //       petite taille que l'on utilise mais il
-                         //       faudrait en théorie pointer sur des uint8_t
-                         //       car certains champs du header sont sur 8 bits
+  // NOTE: On pointe sur des uint16_t car c'est la plus petite taille que l'on
+  // utilise mais il faudrait en théorie pointer sur des uint8_t car certains
+  // champs du header sont sur 8 bits
+  volatile uint16_t *device_addr;
   for (uint32_t device = 0; device < 32; device++) {
     // NOTE: il faut cast PCI_ECAM car les adresses sont sur 64 bits
     device_addr =
-        (uint16_t *)((uint64_t)PCI_ECAM_BASE_ADDRESS + (device << 15));
-    uint32_t id = *(device_addr + 1) << 16 | *device_addr;
+        (volatile uint16_t *)((uint64_t)PCI_ECAM_BASE_ADDRESS + (device << 15));
+    volatile uint32_t id = *(device_addr + 1) << 16 | *device_addr;
     if (id == DISPLAY_PCI_ID) {
       found = 1;
       break;
@@ -50,7 +50,8 @@ uint64_t init_ecran() {
   *(device_addr + 13) = (BOCHS_CONFIG_BASE_ADDRESS >> 16);
 
   // Configuration de l'écran
-  uint16_t *dispi_addr = (uint16_t *)(BOCHS_CONFIG_BASE_ADDRESS + 0x500);
+  volatile uint16_t *dispi_addr =
+      (volatile uint16_t *)(BOCHS_CONFIG_BASE_ADDRESS + 0x500);
   // On s'assure que l'écran est du bon type
   if ((*(dispi_addr + VBE_DISPI_INDEX_ID) & 0xFFF0) != VBE_DISPI_ID0) {
     return 2;

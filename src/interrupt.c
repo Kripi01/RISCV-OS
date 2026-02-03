@@ -6,7 +6,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-static uint32_t time = 0;
+static volatile uint32_t time = 0;
 
 // Renvoie le nombre de secondes depuis le lancement du programme.
 uint32_t nbr_secondes() {
@@ -35,8 +35,8 @@ void trap_handler(uint64_t mcause, uint64_t mie, uint64_t mip) {
     display_top_right(time_str, 10);
 
     // On acquitte l'IRQ et on réenclenche la prochaine interruption du timer.
-    *(uint64_t *)(CLINT_TIMER_CMP) =
-        *(uint64_t *)CLINT_TIMER + IT_TICS_REMAINING;
+    *(volatile uint64_t *)(CLINT_TIMER_CMP) =
+        *(volatile uint64_t *)CLINT_TIMER + IT_TICS_REMAINING;
 
     // On change de processus à chaque interruption timer.
     ordonnance();
@@ -70,6 +70,6 @@ void enable_timer() {
   __asm__("csrs mie, %0" ::"r"(1 << IRQ_M_TMR));
 
   // Envoi de la première interruption par le timer
-  uint64_t next_timer_value = *(uint64_t *)CLINT_TIMER + IT_TICS_REMAINING;
-  *(uint64_t *)(CLINT_TIMER_CMP) = next_timer_value;
+  *(volatile uint64_t *)(CLINT_TIMER_CMP) =
+      *(volatile uint64_t *)CLINT_TIMER + IT_TICS_REMAINING;
 }
