@@ -1,4 +1,5 @@
 #include "process.h"
+#include "cpu.h"
 #include "interrupt.h"
 #include "platform.h"
 #include "screen.h"
@@ -9,7 +10,8 @@
 static int max_nb_pid = 0;
 static process_t scheduler[MAX_NB_PROCESSES];
 static process_t *actif;
-static char *nom_etats[4] = {"ELU", "ACTIVABLE", "ENDORMI", "MORT"};
+static char *nom_etats[5] = {"ELU", "ACTIVABLE", "ENDORMI", "MORT",
+                             "EN ATTENTE"};
 
 // Initialise (ou de réinitialise) le système pour la gestion des processus.
 // Cette fonction ne démarre pas de nouveau processus.
@@ -19,6 +21,7 @@ void init_proc() {
   // processus actif, car le système ne doit jamais s'arrêter.
   process_t *p = &scheduler[0];
   p->pid = 0;
+  p->pid_parent = 0; // arbitraire car jamais utilisé pour idle
   snprintf(p->nom, MAX_CHAR_NAME, "idle");
   p->etat = ELU;
   p->contexte[0] = (uint64_t)idle;
@@ -28,7 +31,8 @@ void init_proc() {
   max_nb_pid = 1;
 }
 
-// Renvoie le pid du processus créé, ou -1 en cas d'erreur
+// Renvoie le pid du processus créé, ou -1 en cas d'erreur. Ne gère pas la
+// filiation du processus (il faut appeler waitpid)
 int64_t cree_processus(int code(), char *nom) {
   if (max_nb_pid >= MAX_NB_PROCESSES) {
     return -1;
@@ -56,7 +60,7 @@ int64_t cree_processus(int code(), char *nom) {
   // '\0' pour afficher l'état des processus ensuite.
   snprintf(p->nom, MAX_CHAR_NAME, "%s", nom);
 
-  // NOTE: p.contexte et p.pile ne sont remplis que partiellement lors de la
+  // NOTE: p->contexte et p->pile ne sont remplis que partiellement lors de la
   // création du processus. Ils seront complétés par ctx_sw après le premier
   // context switch.
 
@@ -86,14 +90,14 @@ void ordonnance() {
   // L'heure de réveil est correcte que lorsque le processus est endormi. Sinon,
   // elle est périmée.
   uint64_t n = nbr_secondes();
-  while (next_process->etat == MORT ||
+  while (next_process->etat == MORT || next_process->etat == EN_ATTENTE ||
          (next_process->etat == ENDORMI && next_process->heure_reveil > n)) {
     next_idx++;
     next_process = &scheduler[next_idx % max_nb_pid];
   }
 
-  // Si l'état actif n'a pas été endormi ou tué, alors on le met en activable,
-  // sinon on le laisse endormi ou tué
+  // Si l'état actif n'a pas été endormi ou tué ou en_attente, alors on le met
+  // en activable, sinon on le laisse endormi ou tué ou en_attente
   actif->etat = actif->etat == ELU ? ACTIVABLE : actif->etat;
   next_process->etat = ELU;
 
@@ -120,10 +124,32 @@ void dors(uint64_t nbr_secs) {
   ordonnance();
 }
 
-// Kill le processus actif et change de processus.
-// WARNING: Cette fonction ne doit jamais être appelée sur idle.
+// Kill le processus actif et remet son parent en activable (s'il n'a pas changé
+// d'état depuis). Enfin, change de processus (ne redonne pas forcément la main
+// au processus parent). WARNING: Cette fonction ne doit jamais être appelée sur
+// idle.
 void fin_processus() {
   actif->etat = MORT;
+
+  process_t *parent = (&scheduler[actif->pid_parent]);
+  // Si le parent est mort entre temps alors on ne le réanime pas!
+  if (parent->etat == EN_ATTENTE) {
+    // Le processus parent est de nouveau activable.
+    (&scheduler[actif->pid_parent])->etat = ACTIVABLE;
+  }
+
+  ordonnance();
+}
+
+// Le processus actif passe en attente jusqu'à ce que le processus fils
+// (PID=pid) soit mort (cf. fin_processus). On change donc de processus (on ne
+// passe pas nécessairement au processus fils)
+void waitpid(int64_t pid) {
+  process_t *p = &scheduler[pid];
+
+  actif->etat = EN_ATTENTE;
+  p->pid_parent = actif->pid;
+
   ordonnance();
 }
 
@@ -147,7 +173,7 @@ void affiche_etats() {
     // On n'affiche pas les processus morts
     if (p->etat != MORT) {
       int remaining = len_buffer - pos;
-      pos += snprintf(s + pos, remaining, "%s(PID=%d):%s ", p->nom, p->pid,
+      pos += snprintf(s + pos, remaining, "%s(PID=%ld):%s ", p->nom, p->pid,
                       nom_etats[p->etat]);
     }
   }
@@ -162,6 +188,12 @@ void affiche_etats() {
 // NOTE: Comme idle ne termine jamais, on arrive jamais à l'instruction
 // fin_processus, donc idle n'est jamais killed.
 void proc_launcher(int proc()) {
+  // On force les nouveaux processus à commencer avec les interruptions timer
+  // autorisées (ils peuvent toujours les désactiver ensuite). Ça fixe le bug de
+  // non-actualisation de l'horloge quand un processus est lancé par un
+  // processus ayant les interruptions désactivées (bash par exemple).
+  enable_it();
+
   proc();
   fin_processus();
 }
@@ -174,7 +206,7 @@ int ps() {
     process_t *p = &scheduler[i];
     // On n'affiche pas les processus morts
     if (p->etat != MORT) {
-      printf("| %-15s | %-5d | %-10s |\n", p->nom, p->pid, nom_etats[p->etat]);
+      printf("| %-15s | %-5ld | %-10s |\n", p->nom, p->pid, nom_etats[p->etat]);
     }
   }
   printf("+-----------------+-------+------------+\n");

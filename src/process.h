@@ -12,15 +12,17 @@ typedef enum {
   ACTIVABLE,
   ENDORMI,
   MORT,
+  EN_ATTENTE,
 } Status;
 
 typedef struct {
-  int pid;
+  int64_t pid;
   char nom[MAX_CHAR_NAME];
   Status etat;
   uint64_t contexte[18];
   uint64_t pile[PROCESS_STACK_SIZE];
   uint64_t heure_reveil;
+  int64_t pid_parent;
 } process_t;
 
 void init_proc();
@@ -30,6 +32,7 @@ int64_t mon_pid();
 char *mon_nom();
 void dors(uint64_t nbr_secs);
 void fin_processus();
+void waitpid(int64_t p);
 void affiche_etats();
 void proc_launcher(int proc());
 int ps();

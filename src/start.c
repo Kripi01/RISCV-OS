@@ -40,6 +40,10 @@ void display_french_flag() {
 
 void idle() {
   _place_curseur(1, 0); // On affiche le premier curseur
+
+  int64_t pid = cree_processus(bash, "bash");
+  waitpid(pid);
+
   for (;;) {
     enable_it();
     hlt();
@@ -85,6 +89,19 @@ int f_true() { return 0; }
 
 int f_false() { return 1; }
 
+int test_wait() {
+  for (int32_t i = 0; i < 100; i++) {
+    printf("[temps = %u] processus %s pid = %li\n", nbr_secondes(), mon_nom(),
+           mon_pid());
+  }
+  return 0;
+}
+
+int history() {
+  printf("wip\n");
+  return 0;
+}
+
 void kernel_start() {
   init_uart();
   enable_uart_interrupts();
@@ -94,13 +111,11 @@ void kernel_start() {
   enable_timer();
 
   init_proc();
+  idle();
+
   // cree_processus(proc1, "proc1");
   // cree_processus(proc2, "proc2");
   // cree_processus(proc3, "proc3");
-
-  cree_processus(bash, "bash");
-
-  idle();
 
   /* on ne doit jamais sortir de kernel_start */
   while (1) {

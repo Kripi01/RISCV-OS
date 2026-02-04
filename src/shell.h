@@ -5,7 +5,6 @@
 extern volatile int last_index_cmd;
 extern volatile char commands[MAX_LENGTH_COMMANDS];
 
-char *get_command();
 int bash();
 
 #endif // __SHELL_H__
