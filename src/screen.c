@@ -151,7 +151,7 @@ void supprime_car(uint32_t bg_color) {
 }
 
 // On enlève le curseur de sa position actuelle
-static void _supprime_curseur() {
+void _supprime_curseur() {
   uint32_t y = cursor_lig * 8 + 7;
   for (int x = 0; x < 8; x++) {
     // On inverse la couleur du curseur (sans toucher aux 2 premiers bits)
@@ -161,7 +161,7 @@ static void _supprime_curseur() {
 }
 // Déplace le curseur (sans suppression au préalable)
 // Acutalise les variables globales cursor_col et cursor_lig
-static void _place_curseur(uint32_t lig, uint32_t col) {
+void _place_curseur(uint32_t lig, uint32_t col) {
   cursor_lig = lig;
   cursor_col = col;
 

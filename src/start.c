@@ -39,6 +39,7 @@ void display_french_flag() {
 }
 
 void idle() {
+  _place_curseur(1, 0); // On affiche le premier curseur
   for (;;) {
     enable_it();
     hlt();

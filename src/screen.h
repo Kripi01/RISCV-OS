@@ -25,6 +25,8 @@ void ecrit_car(uint32_t lig, uint32_t col, char c, uint32_t char_color,
                uint32_t bg_color);
 int has_car(uint32_t lig, uint32_t col, uint32_t bg_color);
 void supprime_car(uint32_t bg_color);
+void _supprime_curseur();
+void _place_curseur(uint32_t lig, uint32_t col);
 void place_curseur(uint32_t lig, uint32_t col);
 void efface_ecran();
 void defilement();
