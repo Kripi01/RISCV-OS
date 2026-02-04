@@ -1,5 +1,6 @@
 #include "keyboard.h"
 #include "platform.h"
+#include "shell.h"
 #include <stdint.h>
 
 /* Configure le PLIC pour autoriser IRQ10 (UART)*/
@@ -36,7 +37,20 @@ int getchar_uart() {
   // On gère le problème du 'Entrée' interprété comme un CR et non comme un LF
   // (ou CRLF)
   if (c == '\r' || c == '\n') {
+    commands[last_index_cmd] = '\n';
     return '\n';
+  }
+
+  // Quand c'est un SUPPR, on doit supprimer un caractère de la commande.
+  if (c == 127 || c == '\b') {
+    if (last_index_cmd > 0) {
+      last_index_cmd--;
+      commands[last_index_cmd] = 0;
+    }
+  } else if (last_index_cmd < MAX_LENGTH_COMMANDS) {
+    // On ajoute le caractère au tableau de bash.
+    commands[last_index_cmd] = c;
+    last_index_cmd++;
   }
 
   return c;

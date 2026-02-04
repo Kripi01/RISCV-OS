@@ -1,3 +1,6 @@
+// TODO: Emêcher de supprimer les lignes "validés" en gardant en mémoire
+// l'indice de la ligne validée la plus basse.
+
 #include "screen.h"
 #include "font.h"
 #include <string.h>

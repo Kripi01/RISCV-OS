@@ -49,7 +49,7 @@ void trap_handler(uint64_t mcause, uint64_t mie, uint64_t mip) {
     uint32_t interrupt_id = *(volatile uint32_t *)PLIC_IRQ_CLAIM;
     if (interrupt_id == 10) {
       // On gère l'interruption de l'UART.
-      int c = getchar_uart();
+      char c = getchar_uart();
       printf("%c", c);
 
       // On complète l'interruption en écrivant l'ID de l'interrupt dans le

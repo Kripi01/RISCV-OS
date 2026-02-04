@@ -3,6 +3,7 @@
 #include "keyboard.h"
 #include "process.h"
 #include "screen.h"
+#include "shell.h"
 #include "uart.h"
 #include <stdint.h>
 #include <stdio.h>
@@ -45,31 +46,43 @@ void idle() {
   }
 }
 
-void proc1() {
-  for (int32_t i = 0; i < 2; i++) {
-    printf("[temps = %u] processus %s pid = %li\n", nbr_secondes(), mon_nom(),
-           mon_pid());
-    dors(2);
-  }
+// void proc1() {
+//   for (int32_t i = 0; i < 2; i++) {
+//     printf("[temps = %u] processus %s pid = %li\n", nbr_secondes(),
+//     mon_nom(),
+//            mon_pid());
+//     dors(2);
+//   }
+// }
+//
+// void proc2() {
+//   for (int32_t i = 0; i < 2; i++) {
+//     printf("[temps = %u] processus %s pid = %li\n", nbr_secondes(),
+//     mon_nom(),
+//            mon_pid());
+//     dors(3);
+//   }
+//   cree_processus(proc1, "new_proc1");
+// }
+//
+// void proc3() {
+//   for (int32_t i = 0; i < 2; i++) {
+//     printf("[temps = %u] processus %s pid = %li\n", nbr_secondes(),
+//     mon_nom(),
+//            mon_pid());
+//     dors(5);
+//   }
+//   cree_processus(proc2, "new_proc2");
+// }
+
+int help() {
+  printf("Commandes disponibles: help, ps, true, false\n");
+  return 0;
 }
 
-void proc2() {
-  for (int32_t i = 0; i < 2; i++) {
-    printf("[temps = %u] processus %s pid = %li\n", nbr_secondes(), mon_nom(),
-           mon_pid());
-    dors(3);
-  }
-  cree_processus(proc1, "new_proc1");
-}
+int f_true() { return 0; }
 
-void proc3() {
-  for (int32_t i = 0; i < 2; i++) {
-    printf("[temps = %u] processus %s pid = %li\n", nbr_secondes(), mon_nom(),
-           mon_pid());
-    dors(5);
-  }
-  cree_processus(proc2, "new_proc2");
-}
+int f_false() { return 1; }
 
 void kernel_start() {
   init_uart();
@@ -80,9 +93,11 @@ void kernel_start() {
   enable_timer();
 
   init_proc();
-  cree_processus(proc1, "proc1");
+  // cree_processus(proc1, "proc1");
   // cree_processus(proc2, "proc2");
   // cree_processus(proc3, "proc3");
+
+  cree_processus(bash, "bash");
 
   idle();
 

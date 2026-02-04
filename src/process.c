@@ -9,6 +9,7 @@
 static int max_nb_pid = 0;
 static process_t scheduler[MAX_NB_PROCESSES];
 static process_t *actif;
+static char *nom_etats[4] = {"ELU", "ACTIVABLE", "ENDORMI", "MORT"};
 
 // Initialise (ou de réinitialise) le système pour la gestion des processus.
 // Cette fonction ne démarre pas de nouveau processus.
@@ -28,7 +29,7 @@ void init_proc() {
 }
 
 // Renvoie le pid du processus créé, ou -1 en cas d'erreur
-int64_t cree_processus(void code(), char *nom) {
+int64_t cree_processus(int code(), char *nom) {
   if (max_nb_pid >= MAX_NB_PROCESSES) {
     return -1;
   }
@@ -139,8 +140,6 @@ void affiche_etats() {
            BLACK, BYTES_PER_PIXEL * len_buffer * FONT_WIDTH);
   }
 
-  char *nom_etats[] = {"ELU", "ACTIVABLE", "ENDORMI", "MORT"};
-
   char s[len_buffer];
   uint64_t pos = 0;
   for (int i = 0; i < max_nb_pid; i++) {
@@ -162,7 +161,23 @@ void affiche_etats() {
 // fin de son exécution.
 // NOTE: Comme idle ne termine jamais, on arrive jamais à l'instruction
 // fin_processus, donc idle n'est jamais killed.
-void proc_launcher(void proc()) {
+void proc_launcher(int proc()) {
   proc();
   fin_processus();
+}
+
+int ps() {
+  printf("+-----------------+-------+------------+\n");
+  printf("| Nom             | PID   | Etat       |\n");
+  printf("|-----------------|-------|------------|\n");
+  for (int i = 0; i < max_nb_pid; i++) {
+    process_t *p = &scheduler[i];
+    // On n'affiche pas les processus morts
+    if (p->etat != MORT) {
+      printf("| %-15s | %-5d | %-10s |\n", p->nom, p->pid, nom_etats[p->etat]);
+    }
+  }
+  printf("+-----------------+-------+------------+\n");
+
+  return 0;
 }

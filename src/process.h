@@ -24,14 +24,15 @@ typedef struct {
 } process_t;
 
 void init_proc();
-int64_t cree_processus(void code(), char *nom);
+int64_t cree_processus(int code(), char *nom);
 void ordonnance();
 int64_t mon_pid();
 char *mon_nom();
 void dors(uint64_t nbr_secs);
 void fin_processus();
 void affiche_etats();
-void proc_launcher(void proc());
+void proc_launcher(int proc());
+int ps();
 
 extern void idle();
 extern void ctx_sw(uint64_t *contexte1, uint64_t *contexte2);
