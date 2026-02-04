@@ -19,6 +19,7 @@
 #define WHITE 0x00ffffff
 #define BLACK 0x00000000
 
+void set_validated_lig();
 uint64_t init_ecran();
 void pixel(uint32_t x, uint32_t y, uint32_t couleur);
 void ecrit_car(uint32_t lig, uint32_t col, char c, uint32_t char_color,

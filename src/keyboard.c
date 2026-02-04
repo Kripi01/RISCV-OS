@@ -1,5 +1,6 @@
 #include "keyboard.h"
 #include "platform.h"
+#include "screen.h"
 #include "shell.h"
 #include <stdint.h>
 
@@ -34,6 +35,14 @@ int getchar_uart() {
   // comme une mémoire est accessible en lecture OU EXCLUSIF en écriture à un
   // instant donné, il n'y a pas de problèmes.
   char c = *(volatile uint8_t *)(UART_BASE + UART_RBR);
+
+  // Le buffer est vide, donc c'est une nouvelle commande que l'on tape. Donc on
+  // ne peut plus revenir en arrière (fix le bug de suppression des résultats
+  // des commandes précédentes e.g. ps)
+  if (last_index_cmd == 0) {
+    set_validated_lig();
+  }
+
   // On gère le problème du 'Entrée' interprété comme un CR et non comme un LF
   // (ou CRLF)
   if (c == '\r' || c == '\n') {

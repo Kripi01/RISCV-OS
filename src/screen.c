@@ -1,6 +1,3 @@
-// TODO: Emêcher de supprimer les lignes "validés" en gardant en mémoire
-// l'indice de la ligne validée la plus basse.
-
 #include "screen.h"
 #include "font.h"
 #include <string.h>
@@ -12,6 +9,9 @@ static volatile uint32_t (*const display_base)[DISPLAY_HEIGHT][DISPLAY_WIDTH] =
 // Curseur (intialisé par défaut en haut à gauche de l'écran)
 static uint32_t cursor_lig = 1;
 static uint32_t cursor_col = 0;
+uint32_t last_validated_lig = 0;
+
+void set_validated_lig() { last_validated_lig = cursor_lig; }
 
 // Configure le système pour que la carte graphique soit opérationnelle (PCIe et
 // écran configurés). Retourne 0 si tout c'est bien passé.
@@ -133,7 +133,8 @@ void supprime_car(uint32_t bg_color) {
     uint32_t new_col = cursor_col - 1;
     _supprime_car(cursor_lig, new_col, bg_color);
     place_curseur(cursor_lig, new_col);
-  } else if (cursor_lig > 1) { // On ne veut pas supprimer la première ligne
+  } else if (cursor_lig > last_validated_lig + 1) {
+    // On ne veut pas supprimer au dessus de la dernière ligne validée.
     uint32_t new_lig = cursor_lig - 1;
     // On déplace le curseur sur le slot suivant le dernier caractère sur la
     // ligne du dessus. Si aucun caractère n'est présent sur la ligne du dessus
@@ -205,7 +206,9 @@ void defilement() {
            BLACK, BYTES_PER_LINE);
 
     // On actualise la position du curseur
-    cursor_lig -= 1;
+    cursor_lig--;
+    // On actualise la dernière ligne validée.
+    last_validated_lig--;
   }
 }
 

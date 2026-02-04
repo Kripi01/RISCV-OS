@@ -169,7 +169,7 @@ void proc_launcher(int proc()) {
 int ps() {
   printf("+-----------------+-------+------------+\n");
   printf("| Nom             | PID   | Etat       |\n");
-  printf("|-----------------|-------|------------|\n");
+  printf("|-----------------+-------+------------|\n");
   for (int i = 0; i < max_nb_pid; i++) {
     process_t *p = &scheduler[i];
     // On n'affiche pas les processus morts
