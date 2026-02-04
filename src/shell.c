@@ -17,27 +17,39 @@ extern int f_true();
 extern int f_false();
 extern int test_wait();
 extern int history();
+
+command_t commands[] = {
+    {.nom = "help", .fonction = help},
+    {.nom = "ps", .fonction = ps},
+    {.nom = "history", .fonction = history},
+    {.nom = "true", .fonction = f_true},
+    {.nom = "false", .fonction = f_false},
+    {.nom = "test_wait", .fonction = test_wait},
+};
+
+#define NB_COMMANDS (int)(sizeof(commands) / sizeof(command_t))
+
 volatile int last_index_cmd = 0;
 
 char c[MAX_LENGTH_COMMANDS];
-volatile char commands[MAX_LENGTH_COMMANDS];
+volatile char command_str[MAX_LENGTH_COMMANDS];
 
 // Renvoie la commande tapée par l'utilisateur (une commande termine par un
 // '\n') en remplaçant le '\n' à la fin par un '\0' pour les strcmp ensuite,
 // puis vide le buffer commands.
 static char *get_command() {
-  while (commands[last_index_cmd] != '\n') {
+  while (command_str[last_index_cmd] != '\n') {
     enable_it();
     hlt();
     disable_it();
   }
 
   // On remplace le '\n' à  la fin par un '\0'
-  strncpy(c, (char *)commands, last_index_cmd);
+  strncpy(c, (char *)command_str, last_index_cmd);
   c[last_index_cmd] = '\0';
 
   // Puis on vide la liste des commandes.
-  memset((char *)commands, 0, MAX_LENGTH_COMMANDS);
+  command_str[last_index_cmd] = '\0'; // Il faut enlever le '\n' à la fin
   last_index_cmd = 0;
 
   return c;
@@ -71,21 +83,25 @@ static int exec_command(char *command, char *target_command,
 }
 
 // Invite de commande.
-// TODO: créer une structure command_t qui contient le nom de la commande et
-// l'adresse de la fonction à exécuter. Il suffit alors de remplacer le big if
-// par une boucle for sur le tableau contenant toutes les commande_t.
 int bash() {
   for (;;) {
-    char *command = get_command();
-    if (exec_command(command, "help", help)) {
-    } else if (exec_command(command, "ps", ps)) {
-    } else if (exec_command(command, "history", history)) {
-    } else if (exec_command(command, "true", f_true)) {
-    } else if (exec_command(command, "false", f_false)) {
-    } else if (exec_command(command, "test_wait", test_wait)) {
-    } else if (strcmp(command, "\0") == 0) {
-      // On ne fait rien, l'utilisateur a simplement appuyé sur entrée.
-    } else {
+    char *cur_command = get_command();
+
+    // Si l'utilisateur tape simplement entrée, on ne l'interprète pas
+    if (strcmp(cur_command, "\0") == 0) {
+      continue;
+    }
+
+    int found = 0;
+    for (int i = 0; i < NB_COMMANDS; i++) {
+      command_t *command = &commands[i];
+      if (exec_command(cur_command, command->nom, command->fonction)) {
+        found = 1;
+        break;
+      }
+    }
+
+    if (!found) {
       printf("Commande introuvable.\n");
     }
   }

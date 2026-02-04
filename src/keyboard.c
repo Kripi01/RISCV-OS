@@ -46,7 +46,7 @@ int getchar_uart() {
   // On gère le problème du 'Entrée' interprété comme un CR et non comme un LF
   // (ou CRLF)
   if (c == '\r' || c == '\n') {
-    commands[last_index_cmd] = '\n';
+    command_str[last_index_cmd] = '\n';
     return '\n';
   }
 
@@ -54,11 +54,11 @@ int getchar_uart() {
   if (c == 127 || c == '\b') {
     if (last_index_cmd > 0) {
       last_index_cmd--;
-      commands[last_index_cmd] = 0;
+      command_str[last_index_cmd] = 0;
     }
   } else if (last_index_cmd < MAX_LENGTH_COMMANDS) {
     // On ajoute le caractère au tableau de bash.
-    commands[last_index_cmd] = c;
+    command_str[last_index_cmd] = c;
     last_index_cmd++;
   }
 
