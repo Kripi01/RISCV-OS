@@ -1,7 +1,4 @@
 // TODO: afficher un prompt "$ " avant chaque commande
-// ajouter une commande exit pour quitter le shell (donc break de la boucle for
-// en cours)
-// ajouter un commande bash pour lancer un nouveau shell
 
 #include "shell.h"
 #include "cpu.h"
@@ -15,8 +12,11 @@ extern int ps();
 extern int help();
 extern int f_true();
 extern int f_false();
-extern int test_wait();
+extern int proc1();
+extern int proc2();
+extern int proc3();
 extern int history();
+extern int clear();
 
 command_t commands[] = {
     {.nom = "help", .fonction = help},
@@ -24,7 +24,11 @@ command_t commands[] = {
     {.nom = "history", .fonction = history},
     {.nom = "true", .fonction = f_true},
     {.nom = "false", .fonction = f_false},
-    {.nom = "test_wait", .fonction = test_wait},
+    {.nom = "proc1", .fonction = proc1},
+    {.nom = "proc2", .fonction = proc2},
+    {.nom = "proc3", .fonction = proc3},
+    {.nom = "bash", .fonction = bash},
+    {.nom = "clear", .fonction = clear},
 };
 
 #define NB_COMMANDS (int)(sizeof(commands) / sizeof(command_t))
@@ -90,6 +94,10 @@ int bash() {
     // Si l'utilisateur tape simplement entrée, on ne l'interprète pas
     if (strcmp(cur_command, "\0") == 0) {
       continue;
+    }
+
+    if (strcmp(cur_command, "exit") == 0) {
+      break;
     }
 
     int found = 0;

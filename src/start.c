@@ -41,9 +41,6 @@ void display_french_flag() {
 void idle() {
   _place_curseur(1, 0); // On affiche le premier curseur
 
-  int64_t pid = cree_processus(bash, "bash");
-  waitpid(pid);
-
   for (;;) {
     enable_it();
     hlt();
@@ -51,37 +48,40 @@ void idle() {
   }
 }
 
-// void proc1() {
-//   for (int32_t i = 0; i < 2; i++) {
-//     printf("[temps = %u] processus %s pid = %li\n", nbr_secondes(),
-//     mon_nom(),
-//            mon_pid());
-//     dors(2);
-//   }
-// }
-//
-// void proc2() {
-//   for (int32_t i = 0; i < 2; i++) {
-//     printf("[temps = %u] processus %s pid = %li\n", nbr_secondes(),
-//     mon_nom(),
-//            mon_pid());
-//     dors(3);
-//   }
-//   cree_processus(proc1, "new_proc1");
-// }
-//
-// void proc3() {
-//   for (int32_t i = 0; i < 2; i++) {
-//     printf("[temps = %u] processus %s pid = %li\n", nbr_secondes(),
-//     mon_nom(),
-//            mon_pid());
-//     dors(5);
-//   }
-//   cree_processus(proc2, "new_proc2");
-// }
+int proc1() {
+  for (int32_t i = 0; i < 2; i++) {
+    printf("[temps = %u] processus %s pid = %li\n", nbr_secondes(), mon_nom(),
+           mon_pid());
+    dors(2);
+  }
+
+  return 0;
+}
+
+int proc2() {
+  for (int32_t i = 0; i < 2; i++) {
+    printf("[temps = %u] processus %s pid = %li\n", nbr_secondes(), mon_nom(),
+           mon_pid());
+    dors(3);
+  }
+  cree_processus(proc1, "new_proc1");
+
+  return 0;
+}
+
+int proc3() {
+  for (int32_t i = 0; i < 2; i++) {
+    printf("[temps = %u] processus %s pid = %li\n", nbr_secondes(), mon_nom(),
+           mon_pid());
+    dors(5);
+  }
+  cree_processus(proc2, "new_proc2");
+
+  return 0;
+}
 
 int help() {
-  printf("Commandes disponibles: help, ps, true, false\n");
+  printf("Commandes disponibles: help, ps, true, false, bash, clear\n");
   return 0;
 }
 
@@ -89,16 +89,13 @@ int f_true() { return 0; }
 
 int f_false() { return 1; }
 
-int test_wait() {
-  for (int32_t i = 0; i < 100; i++) {
-    printf("[temps = %u] processus %s pid = %li\n", nbr_secondes(), mon_nom(),
-           mon_pid());
-  }
+int history() {
+  printf("wip\n");
   return 0;
 }
 
-int history() {
-  printf("wip\n");
+int clear() {
+  printf("\f");
   return 0;
 }
 
@@ -110,7 +107,13 @@ void kernel_start() {
   init_traitant(mon_traitant);
   enable_timer();
 
-  init_proc();
+  init_proc(); // crée idle et l'élit.
+
+  // WARNING: il ne faut pas faire créer le premier bash par idle (avec waitpid)
+  // car sinon, idle serait en attente de la mort de bash et quand bash lance un
+  // processus qui se met à dormir alors il y a interblocage.
+  cree_processus(bash, "bash");
+
   idle();
 
   // cree_processus(proc1, "proc1");

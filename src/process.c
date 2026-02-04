@@ -126,8 +126,8 @@ void dors(uint64_t nbr_secs) {
 
 // Kill le processus actif et remet son parent en activable (s'il n'a pas changé
 // d'état depuis). Enfin, change de processus (ne redonne pas forcément la main
-// au processus parent). WARNING: Cette fonction ne doit jamais être appelée sur
-// idle.
+// au processus parent).
+// WARNING: Cette fonction ne doit jamais être appelée sur idle.
 void fin_processus() {
   actif->etat = MORT;
 
