@@ -1,4 +1,5 @@
 #include "cpu.h"
+#include "heap.h"
 #include "interrupt.h"
 #include "keyboard.h"
 #include "process.h"
@@ -90,12 +91,60 @@ int f_true() { return 0; }
 int f_false() { return 1; }
 
 int history() {
-  printf("wip\n");
+  printf("todo\n");
   return 0;
 }
 
 int clear() {
   printf("\f");
+  return 0;
+}
+
+int fg() {
+  printf("todo\n");
+  return 0;
+}
+
+int heap_test() {
+  int N = 10;
+
+  int **mat = h_malloc(N * sizeof(int *));
+  for (int i = 0; i < N; i++) {
+    mat[i] = h_malloc(N * sizeof(int));
+    for (int j = 0; j < N; j++) {
+      mat[i][j] = i * N + j;
+    }
+  }
+
+  for (int i = 0; i < N; i++) {
+    for (int j = 0; j < N; j++) {
+      printf("%d ", mat[i][j]);
+    }
+    printf("\n");
+  }
+
+  // Puis on free la matrice
+  for (int i = 0; i < N; i++) {
+    h_free(mat[i]);
+  }
+  h_free(mat);
+
+  return 0;
+}
+
+int heap_overflow_test() {
+  int size = 1280000000; // overflow! (la ram fait 128Mo)
+  char *tab = h_malloc(size * sizeof(char));
+
+  for (int i = 0; i < size; i++) {
+    if (i % 10000000 == 0) {
+      printf("i: %d\n", i);
+    }
+    tab[i] = 'b';
+  }
+
+  h_free(tab);
+
   return 0;
 }
 
@@ -115,10 +164,6 @@ void kernel_start() {
   cree_processus(bash, "bash");
 
   idle();
-
-  // cree_processus(proc1, "proc1");
-  // cree_processus(proc2, "proc2");
-  // cree_processus(proc3, "proc3");
 
   /* on ne doit jamais sortir de kernel_start */
   while (1) {

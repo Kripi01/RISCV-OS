@@ -1,5 +1,3 @@
-// TODO: afficher un prompt "$ " avant chaque commande
-
 #include "shell.h"
 #include "cpu.h"
 #include "process.h"
@@ -16,7 +14,10 @@ extern int proc1();
 extern int proc2();
 extern int proc3();
 extern int history();
+extern int fg();
 extern int clear();
+extern int heap_test();
+extern int heap_overflow_test();
 
 command_t commands[] = {
     {.nom = "help", .fonction = help},
@@ -28,7 +29,10 @@ command_t commands[] = {
     {.nom = "proc2", .fonction = proc2},
     {.nom = "proc3", .fonction = proc3},
     {.nom = "bash", .fonction = bash},
+    {.nom = "fg", .fonction = fg},
     {.nom = "clear", .fonction = clear},
+    {.nom = "heap_test", .fonction = heap_test},
+    {.nom = "heap_overflow_test", .fonction = heap_overflow_test},
 };
 
 #define NB_COMMANDS (int)(sizeof(commands) / sizeof(command_t))
@@ -78,6 +82,8 @@ static int exec_command(char *command, char *target_command,
 
     // Si la commande est en arrière-plan (il y a un ' &')
     if (strcmp(command + len_target, " &") == 0) {
+      // TODO: faire des jobs (fonctionnalité du shell != kernel)
+      // et gérer le cas particulier de bash en arrière-plan.
       cree_processus(target_function, target_command);
       return 1;
     }
@@ -89,6 +95,14 @@ static int exec_command(char *command, char *target_command,
 // Invite de commande.
 int bash() {
   for (;;) {
+    // NOTE: Fonctionne en filiation, mais pas en fond de tâche (mais c'est
+    // normal).
+    // BUG: On peut supprimer le prompt...
+    printf(
+        "$ "); // BUG: Quand on spamme entrée, le "$ " s'affiche en saccadé,
+               // parce que bash n'a pas la main très souvent, il partage trop
+               // avec idle. Il faut changé la politique d'ordonnancement, pour
+               // donner plus de temps à bash et moins à idle ??
     char *cur_command = get_command();
 
     // Si l'utilisateur tape simplement entrée, on ne l'interprète pas
