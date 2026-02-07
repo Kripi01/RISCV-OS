@@ -129,6 +129,22 @@ int heap_test() {
   }
   h_free(mat);
 
+  int **mat2 = h_calloc(N, sizeof(int *));
+  for (int i = 0; i < N; i++) {
+    mat2[i] = h_calloc(N, sizeof(int));
+    for (int j = 0; j < N; j++) {
+      // mat2[i][j] = i * N + j;
+      printf("%d ", mat2[i][j]);
+    }
+    printf("\n");
+  }
+
+  // Puis on free la matrice
+  for (int i = 0; i < N; i++) {
+    h_free(mat2[i]);
+  }
+  h_free(mat2);
+
   return 0;
 }
 

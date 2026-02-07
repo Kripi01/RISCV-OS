@@ -14,6 +14,8 @@ typedef struct {
 #define HEADER_SIZE sizeof(heap_header_t)
 
 void *h_malloc(size_t memorySize);
+void *h_calloc(size_t elementCount, size_t elementSize);
+void *h_realloc(void *pointer, size_t memorySize);
 void h_free(void *ptr);
 
 #endif // __HEAP_H__

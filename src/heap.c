@@ -9,7 +9,9 @@
 // fits).
 
 #include "heap.h"
+#include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 // _heap_start commence  après la fin de tout le code du kernel (cf kernel.lds)
 // NOTE: _heap_start est juste un symbole (=étiquette) défini par le linker, ce
@@ -22,11 +24,11 @@ extern char _heap_start;
 // adresse du bloc le plus haut du tas
 uintptr_t heap_ptr = (uintptr_t)&_heap_start;
 
-// L'adresse que l'on alloue est l'adresse juste après le header d'infos.
-// malloc en O(n) car on parcourt tous les blocs, dans le pire cas, pour trouver
-// un bloc libre de taille suffisante.
-// WARNING: memorySize est la taille en octets du bloc à allouer.
-// WARNING: Pas de gestion d'overflow!
+// Alloue un bloc de mémoire de taille memorySize octets dans le tas. Pas de
+// gestion d'overflow L'adresse que l'on renvoie est l'adresse juste après le
+// header d'infos.
+// PERF: malloc en O(n) car on parcourt tous les blocs, dans le
+// pire cas, pour trouver un bloc libre de taille suffisante.
 void *h_malloc(size_t memorySize) {
   // On parcourt le tas jusqu'à trouver un bloc libre
   uintptr_t p = (uintptr_t)&_heap_start;
@@ -58,8 +60,53 @@ void *h_malloc(size_t memorySize) {
   return allocated_ptr;
 }
 
+// Alloue un bloc de mémoire dans le tas, de taille elementCount éléments de
+// taille elementSize, et initialisé à 0.
+void *h_calloc(size_t elementCount, size_t elementSize) {
+  size_t blocSize = elementCount * elementSize;
+  void *allocated_ptr = h_malloc(blocSize);
+  // On remplit le bloc alloué de 0.
+  memset(allocated_ptr, 0, blocSize);
+
+  return allocated_ptr;
+}
+
+// Réalloue un bloc de mémoire dans le tas.
+// Si l'espace mémoire libre qui suit le bloc à réallouer est suffisament grand,
+// le bloc de mémoire est simplement agrandi. Sinon, un nouveau bloc de mémoire
+// est alloué, le contenu de la zone d'origine recopié dans la nouvelle zone et
+// le bloc mémoire d'origine sera libéré automatiquement.
+void *h_realloc(void *pointer, size_t memorySize) {
+  heap_header_t *header = (heap_header_t *)((uintptr_t)pointer - HEADER_SIZE);
+  size_t cur_blocSize = header->block_size;
+  if (memorySize <= cur_blocSize) { // Pas besoin d'agrandir
+    return pointer;
+  }
+
+  heap_header_t *next_header =
+      (heap_header_t *)((uintptr_t)pointer + cur_blocSize);
+  if ((uintptr_t)next_header < heap_ptr && next_header->is_free == 1 &&
+      next_header->block_size + cur_blocSize >= memorySize) {
+    // On agrandit en ajoutant juste le bloc suivant (avec son header!).
+    header->block_size += next_header->block_size + HEADER_SIZE;
+    // On ne touche pas au next_header, il sera écrasé par les données de
+    // l'utilisateur.
+    return pointer;
+  }
+
+  // Le bloc suivant n'est pas assez grand, donc on alloue un nouveau bloc de
+  // mémoire, et on recopie le contenu.
+  void *new_bloc = h_malloc(memorySize);
+  // memcpy pour la rapidité, on peut car il n'y a pas de chevauchement
+  memcpy(new_bloc, pointer, header->block_size);
+  header->is_free = 1; // On libère le bloc original
+
+  return new_bloc;
+}
+
 // Pour free, il suffit d'indiquer que le bloc est libre. Pour cela, on change
 // le header du bloc à l'adresse: adresse fournie - sizeof(heap_header_t)
+// TODO: coalescence
 void h_free(void *ptr) {
   ((heap_header_t *)ptr - 1)->is_free = 1;
   return;
