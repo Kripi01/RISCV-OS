@@ -4,11 +4,10 @@
 // par la suite.
 // PERF: malloc en O(n) car on doit parcourir tout le tas pour trouver un
 // emplacement convenable.
+// WARNING: Il faut utiliser l'implémentation du Buddy Memory Allocation dans
+// buddy_heap.c
 
-// TODO: Implémenter un segregated fits (au lieu de la version naïve, first
-// fits).
-
-#include "heap.h"
+#include "naive_heap.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -106,7 +105,6 @@ void *h_realloc(void *pointer, size_t memorySize) {
 
 // Pour free, il suffit d'indiquer que le bloc est libre. Pour cela, on change
 // le header du bloc à l'adresse: adresse fournie - sizeof(heap_header_t)
-// TODO: coalescence
 void h_free(void *ptr) {
   ((heap_header_t *)ptr - 1)->is_free = 1;
   return;

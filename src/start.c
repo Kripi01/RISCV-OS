@@ -1,5 +1,5 @@
+#include "buddy_heap.h"
 #include "cpu.h"
-#include "heap.h"
 #include "interrupt.h"
 #include "keyboard.h"
 #include "process.h"
@@ -105,69 +105,12 @@ int fg() {
   return 0;
 }
 
-int heap_test() {
-  int N = 10;
-
-  int **mat = h_malloc(N * sizeof(int *));
-  for (int i = 0; i < N; i++) {
-    mat[i] = h_malloc(N * sizeof(int));
-    for (int j = 0; j < N; j++) {
-      mat[i][j] = i * N + j;
-    }
-  }
-
-  for (int i = 0; i < N; i++) {
-    for (int j = 0; j < N; j++) {
-      printf("%d ", mat[i][j]);
-    }
-    printf("\n");
-  }
-
-  // Puis on free la matrice
-  for (int i = 0; i < N; i++) {
-    h_free(mat[i]);
-  }
-  h_free(mat);
-
-  int **mat2 = h_calloc(N, sizeof(int *));
-  for (int i = 0; i < N; i++) {
-    mat2[i] = h_calloc(N, sizeof(int));
-    for (int j = 0; j < N; j++) {
-      // mat2[i][j] = i * N + j;
-      printf("%d ", mat2[i][j]);
-    }
-    printf("\n");
-  }
-
-  // Puis on free la matrice
-  for (int i = 0; i < N; i++) {
-    h_free(mat2[i]);
-  }
-  h_free(mat2);
-
-  return 0;
-}
-
-int heap_overflow_test() {
-  int size = 1280000000; // overflow! (la ram fait 128Mo)
-  char *tab = h_malloc(size * sizeof(char));
-
-  for (int i = 0; i < size; i++) {
-    if (i % 10000000 == 0) {
-      printf("i: %d\n", i);
-    }
-    tab[i] = 'b';
-  }
-
-  h_free(tab);
-
-  return 0;
-}
-
 void kernel_start() {
   init_uart();
   enable_uart_interrupts();
   init_ecran();
+
+  buddy_init_heap();
 
   init_traitant(mon_traitant);
   enable_timer();

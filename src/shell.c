@@ -2,6 +2,7 @@
 #include "cpu.h"
 #include "process.h"
 #include "string.h"
+#include "tests.h"
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
@@ -16,8 +17,6 @@ extern int proc3();
 extern int history();
 extern int fg();
 extern int clear();
-extern int heap_test();
-extern int heap_overflow_test();
 
 command_t commands[] = {
     {.nom = "help", .fonction = help},
@@ -31,8 +30,8 @@ command_t commands[] = {
     {.nom = "bash", .fonction = bash},
     {.nom = "fg", .fonction = fg},
     {.nom = "clear", .fonction = clear},
-    {.nom = "heap_test", .fonction = heap_test},
-    {.nom = "heap_overflow_test", .fonction = heap_overflow_test},
+    {.nom = "buddy_heap_test", .fonction = buddy_heap_test},
+    {.nom = "buddy_heap_overflow_test", .fonction = buddy_heap_overflow_test},
 };
 
 #define NB_COMMANDS (int)(sizeof(commands) / sizeof(command_t))
