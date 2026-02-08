@@ -40,7 +40,7 @@ int getchar_uart() {
   // ne peut plus revenir en arrière (fix le bug de suppression des résultats
   // des commandes précédentes e.g. ps)
   if (last_index_cmd == 0) {
-    set_validated_lig();
+    set_validated();
   }
 
   // On gère le problème du 'Entrée' interprété comme un CR et non comme un LF

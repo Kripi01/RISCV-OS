@@ -96,12 +96,11 @@ int bash() {
   for (;;) {
     // NOTE: Fonctionne en filiation, mais pas en fond de tâche (mais c'est
     // normal).
-    // BUG: On peut supprimer le prompt...
-    printf(
-        "$ "); // BUG: Quand on spamme entrée, le "$ " s'affiche en saccadé,
-               // parce que bash n'a pas la main très souvent, il partage trop
-               // avec idle. Il faut changé la politique d'ordonnancement, pour
-               // donner plus de temps à bash et moins à idle ??
+    // BUG: Quand on spamme entrée, le "$ " s'affiche en saccadé, parce que bash
+    // n'a pas la main très souvent, il partage trop avec idle. Il faut changer
+    // la politique d'ordonnancement, pour donner plus de temps à bash et moins
+    // à idle ??
+    printf("$ ");
     char *cur_command = get_command();
 
     // Si l'utilisateur tape simplement entrée, on ne l'interprète pas

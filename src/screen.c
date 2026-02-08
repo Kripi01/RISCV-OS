@@ -1,5 +1,6 @@
 #include "screen.h"
 #include "font.h"
+#include <stdint.h>
 #include <string.h>
 
 static volatile uint32_t (*const display_base)[DISPLAY_HEIGHT][DISPLAY_WIDTH] =
@@ -10,8 +11,12 @@ static volatile uint32_t (*const display_base)[DISPLAY_HEIGHT][DISPLAY_WIDTH] =
 static uint32_t cursor_lig = 1;
 static uint32_t cursor_col = 0;
 uint32_t last_validated_lig = 0;
+uint32_t last_validated_col = 2;
 
-void set_validated_lig() { last_validated_lig = cursor_lig; }
+void set_validated() {
+  last_validated_lig = cursor_lig;
+  last_validated_col = cursor_col;
+}
 
 // Configure le système pour que la carte graphique soit opérationnelle (PCIe et
 // écran configurés). Retourne 0 si tout c'est bien passé.
@@ -129,7 +134,7 @@ int has_car(uint32_t lig, uint32_t col, uint32_t bg_color) {
 // Supprime le caractère (si présent) juste avant le curseur. Ne supprime pas le
 // curseur. Gère la suppression sur plusieurs lignes.
 void supprime_car(uint32_t bg_color) {
-  if (cursor_col > 0) {
+  if (cursor_lig <= last_validated_lig && cursor_col > last_validated_col) {
     uint32_t new_col = cursor_col - 1;
     _supprime_car(cursor_lig, new_col, bg_color);
     place_curseur(cursor_lig, new_col);
