@@ -18,24 +18,22 @@ const uintptr_t free_memory_start = (uintptr_t)&_free_memory_start;
 extern char _memory_end;
 const uintptr_t memory_end = (uintptr_t)&_memory_end;
 
-free_list_t *fl_head;
-size_t bitmap_size;
-uint8_t *bitmap; // 0 pour une frame libre et 1 pour une frame utilisé
+static free_list_t *fl_head;
+static size_t bitmap_size;
+static uint8_t *bitmap; // 0 pour une frame libre et 1 pour une frame utilisé
 
 #define GET_PFN(pa) (((uintptr_t)(pa) - free_memory_start) / FRAMESIZE)
 #define IS_USED(pfn) ((bitmap[pfn / 8] >> (pfn % 8)) & 0x1)
 
-#define CLEAR_BITMAP(pa)                                                       \
-  {                                                                            \
-    uint64_t pfn = GET_PFN(pa);                                                \
-    bitmap[pfn / 8] &= ~(1 << (pfn % 8));                                      \
-  }
+static inline void clear_bitmap(uintptr_t pa) {
+  uint64_t pfn = GET_PFN(pa);
+  bitmap[pfn / 8] &= ~(1 << (pfn % 8));
+}
 
-#define SET_BITMAP(pa)                                                         \
-  {                                                                            \
-    uint64_t pfn = GET_PFN(pa);                                                \
-    bitmap[pfn / 8] |= 1 << (pfn % 8);                                         \
-  }
+static inline void set_bitmap(uintptr_t pa) {
+  uint64_t pfn = GET_PFN(pa);
+  bitmap[pfn / 8] |= 1 << (pfn % 8);
+}
 
 #define ALIGN_UP(x) (((x) + FRAMESIZE - 1) & ~(FRAMESIZE - 1))
 
@@ -57,7 +55,7 @@ void init_frames() {
 
   fl_head->next = NULL;
   // NOTE: la première frame n'est pas fl_head (la première est au moins bitmap)
-  CLEAR_BITMAP(fl_head);
+  clear_bitmap((uintptr_t)fl_head);
 
   free_list_t *cur = fl_head;
   for (uintptr_t pa = (uintptr_t)fl_head + FRAMESIZE; pa < memory_end;
@@ -66,7 +64,7 @@ void init_frames() {
     cur->next = (free_list_t *)pa;
     cur = (free_list_t *)pa;
 
-    CLEAR_BITMAP(pa);
+    clear_bitmap(pa);
   }
   cur->next = NULL; // la dernière frame doit pointer vers NULL
 }
@@ -81,7 +79,7 @@ void *get_frame() {
   // On renvoie la première frame de la free list
   free_list_t *res = fl_head;
   fl_head = fl_head->next;
-  SET_BITMAP(res);
+  set_bitmap((uintptr_t)res);
 
   return res;
 }
@@ -112,5 +110,5 @@ void release_frame(void *frame) {
   free_list_t *fl_frame = (free_list_t *)frame;
   fl_frame->next = fl_head;
   fl_head = fl_frame;
-  CLEAR_BITMAP(fl_head);
+  clear_bitmap((uintptr_t)fl_head);
 }
