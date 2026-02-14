@@ -192,7 +192,7 @@ void proc_launcher(int proc()) {
   // autorisées (ils peuvent toujours les désactiver ensuite). Ça fixe le bug de
   // non-actualisation de l'horloge quand un processus est lancé par un
   // processus ayant les interruptions désactivées (bash par exemple).
-  enable_it();
+  s_enable_it();
 
   proc();
   fin_processus();

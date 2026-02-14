@@ -15,8 +15,8 @@ entry:
     addi t0, t0, 8
     bleu t0, t1, 1b
 
-    # On commence les choses sérieuses en appelant le code du noyau
-    j kernel_start
+    # NOTE: Le passage au mode superviseur appelle la fonction kernel_start
+    j enter_smode
 
     .weak console_putbytes,__console_putbytes__
 __console_putbytes__:

@@ -1,6 +1,6 @@
-    .globl mon_traitant
+    .globl mon_traitant_m
     .text
-mon_traitant:
+mon_traitant_m:
   addi sp, sp, -128
   sd ra, 0(sp)
   sd t0, 8(sp)
@@ -19,13 +19,13 @@ mon_traitant:
   sd a6, 112(sp)
   sd a7, 120(sp)
 
-mon_traitant_fin_prologue:
-  csrr a0, scause
-  csrr a1, sie
-  csrr a2, sip
-  jal s_trap_handler
+mon_traitant_m_fin_prologue:
+  csrr a0, mcause
+  csrr a1, mie
+  csrr a2, mip
+  jal m_trap_handler
 
-mon_traitant_debut_epilogue:
+mon_traitant_m_debut_epilogue:
   ld ra, 0(sp)
   ld t0, 8(sp)
   ld t1, 16(sp)
@@ -43,4 +43,4 @@ mon_traitant_debut_epilogue:
   ld a6, 112(sp)
   ld a7, 120(sp)
   addi sp, sp, 128
-  sret
+  mret

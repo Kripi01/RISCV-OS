@@ -25,9 +25,9 @@ ctx_sw_fin_prologue:
   sd s9, 104(a0)
   sd s10, 112(a0)
   sd s11, 120(a0)
-  csrr t0, mepc
+  csrr t0, sepc
   sd t0, 128(a0)
-  csrr t0, mstatus
+  csrr t0, sstatus
   sd t0, 136(a0)
 
   # On restaure les mêmes registres mais correspondant au processus 2
@@ -48,9 +48,9 @@ ctx_sw_fin_prologue:
   ld s10, 112(a1)
   ld s11, 120(a1)
   ld t0, 128(a1)
-  csrw mepc, t0
+  csrw sepc, t0
   ld t0, 136(a1)
-  csrw mstatus, t0
+  csrw sstatus, t0
 
   # Enfin, on donne en argument à proc_launcher (l'adresse de ra) la valeur de la
   # fonction du processus 2, qui est la première valeur de la pile (cf cree_processus)

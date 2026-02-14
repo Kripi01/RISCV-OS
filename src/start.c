@@ -43,9 +43,9 @@ void idle() {
   _place_curseur(1, 0); // On affiche le premier curseur
 
   for (;;) {
-    enable_it();
+    s_enable_it();
     hlt();
-    disable_it();
+    s_disable_it();
   }
 }
 
@@ -112,7 +112,7 @@ void kernel_start() {
 
   buddy_init_heap();
 
-  init_traitant(mon_traitant);
+  init_traitant(mon_traitant); // pour le mode S
   enable_timer();
 
   init_proc(); // crée idle et l'élit.

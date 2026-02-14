@@ -51,11 +51,22 @@
 #define DISPLAY_PCI_ID 0x11111234
 
 // PLIC registers addresses
-#define PLIC_PENDING 0x0c001000
-#define PLIC_SOURCE 0x0c000000
-#define PLIC_ENABLE 0x0c002000
-#define PLIC_TARGET 0x0c200000
-#define PLIC_IRQ_CLAIM 0x0c200004
+// Les registres pending bits ne sont normalement jamais utilisés car le PLIC
+// les update automatiquement lors d'un claim
+#define PLIC_PENDING_BASE 0x0c001000
+#define PLIC_SOURCE_BASE 0x0c000000
+#define PLIC_SOURCE(id) (PLIC_SOURCE_BASE + ((id) << 2))
+
+// Adresses spécifiques au contexte
+#define PLIC_ENABLE_BASE 0x0c002000
+#define PLIC_ENABLE(id, ctxt)                                                  \
+  (PLIC_ENABLE_BASE + (((id) % 8) >> 2) + ((ctxt) << 7))
+
+#define PLIC_THRESHOLD_BASE 0x0c200000
+#define PLIC_THRESHOLD(ctxt) (PLIC_THRESHOLD_BASE + ((ctxt) << 12))
+
+#define PLIC_IRQ_CLAIM_BASE 0x0c200004
+#define PLIC_IRQ_CLAIM(ctxt) (PLIC_IRQ_CLAIM_BASE + ((ctxt) << 12))
 
 // PLIC pushbutton irq
 #define PLIC_IRQ_2 0x2
@@ -75,9 +86,37 @@
 
 // Bit in mstatus
 #define MSTATUS_MIE 0x00000008
-// Bit in mie/mip
+// Bit in sstatus
+#define SSTATUS_SIE 0x00000002
+
+// Bits in masked_mcause
+#define IRQ_M_SFT 3
 #define IRQ_M_TMR 7
 #define IRQ_M_EXT 11
+#define EXC_M_ENV_CALL_FROM_U 8
+#define EXC_M_ENV_CALL_FROM_S 9
+#define EXC_M_ENV_CALL_FROM_M 11
+
+// Bits in masked_sscause
+#define IRQ_S_SFT 1
+#define IRQ_S_TMR 5
+#define IRQ_S_EXT 9
+
+// Bits in mie/sie
+#define SSIE (1 << 1)
+#define MSIE (1 << 3)
+#define STIE (1 << 5)
+#define MTIE (1 << 7)
+#define SEIE (1 << 9)
+#define MEIE (1 << 11)
+
+// Bits in mip/sip
+#define SSIP (1 << 1)
+#define MSIP (1 << 3)
+#define STIP (1 << 5)
+#define MTIP (1 << 7)
+#define SEIP (1 << 9)
+#define MEIP (1 << 11)
 
 // UART
 #define UART_BASE 0x10000000

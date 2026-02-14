@@ -46,9 +46,9 @@ volatile char command_str[MAX_LENGTH_COMMANDS];
 // puis vide le buffer commands.
 static char *get_command() {
   while (command_str[last_index_cmd] != '\n') {
-    enable_it();
+    s_enable_it();
     hlt();
-    disable_it();
+    s_disable_it();
   }
 
   // On remplace le '\n' à  la fin par un '\0'
