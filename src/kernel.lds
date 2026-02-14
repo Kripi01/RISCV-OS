@@ -35,8 +35,14 @@ SECTIONS {
 		*(scommon) *(COMMON)
 		. = ALIGN(8);
 		__bss_end = .;
+
+    /* TODO: Le tas doit être construit sur des frames de 4KB, donc inclus dans les frames physiques!!!! */
 		PROVIDE(_heap_start = __bss_end + 8);
-		PROVIDE(_heap_end = ORIGIN(ram) + LENGTH(ram));
+		PROVIDE(_heap_end = _heap_start + 32M); /* Tas de 32MB */
+
+    . = ALIGN(4096); /* La mémoire libre doit être alignée sur 4KB (=1 frame) */
+    PROVIDE(_free_memory_start = _heap_end);
+    PROVIDE(_memory_end = ORIGIN(ram) + LENGTH(ram));
 	} > ram
 	_end = .;
 }

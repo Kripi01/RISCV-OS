@@ -23,7 +23,7 @@ static const size_t min_order = 5;
 
 static uint8_t biggest_order;
 // On a au MAXIMUM 64 ordres (car adresses sur 64 bits)
-static free_list_t *heap_arr[MAX_ORDER];
+static buddy_free_list_t *heap_arr[MAX_ORDER];
 
 // Retourne la partie supérieure de log2(x) (= le plus haut bit à 1 de x)
 static uint8_t integer_log2(uint64_t x) {
@@ -59,17 +59,17 @@ void buddy_init_heap() {
       if (order > biggest_order) {
         biggest_order = order;
       }
-      free_list_t block = {
+      buddy_free_list_t block = {
           .order = order, .is_free = 1, .prev = NULL, .next = NULL};
-      *(free_list_t *)heap_ptr = block;
-      heap_arr[order] = (free_list_t *)heap_ptr;
+      *(buddy_free_list_t *)heap_ptr = block;
+      heap_arr[order] = (buddy_free_list_t *)heap_ptr;
       heap_ptr += (1ULL << order);
     }
   }
 }
 
 // Ajoute le block au début de la free list d'ordre order
-inline static void list_prepend(uint8_t order, free_list_t *block) {
+inline static void list_prepend(uint8_t order, buddy_free_list_t *block) {
   if (block == NULL) {
     return;
   }
@@ -85,7 +85,7 @@ inline static void list_prepend(uint8_t order, free_list_t *block) {
 }
 
 // Extrait le block de la free list
-inline static void list_remove(uint8_t order, free_list_t *block) {
+inline static void list_remove(uint8_t order, buddy_free_list_t *block) {
   if (block == NULL) {
     return;
   }
@@ -103,7 +103,7 @@ inline static void list_remove(uint8_t order, free_list_t *block) {
 }
 
 // Coupe un bloc libre en deux blocs d'ordre inférieur (utile pour malloc)
-static void split_free_block(uint8_t order, free_list_t *block) {
+static void split_free_block(uint8_t order, buddy_free_list_t *block) {
   if (order == 0) {
     return; // On ne peut pas split un bloc d'ordre 0
   }
@@ -115,9 +115,9 @@ static void split_free_block(uint8_t order, free_list_t *block) {
   uint8_t new_order = order - 1;
   uint64_t new_block_size = 1ULL << new_order;
 
-  free_list_t *new_block1 = block;
-  free_list_t *new_block2 =
-      (free_list_t *)((uintptr_t)new_block1 + new_block_size);
+  buddy_free_list_t *new_block1 = block;
+  buddy_free_list_t *new_block2 =
+      (buddy_free_list_t *)((uintptr_t)new_block1 + new_block_size);
   list_prepend(new_order, new_block2);
   list_prepend(new_order, new_block1);
 }
@@ -132,7 +132,7 @@ void *buddy_malloc(size_t memorySize) {
   }
 
   // On cherche un bloc de taille 2^order
-  free_list_t *free_bloc = heap_arr[order];
+  buddy_free_list_t *free_bloc = heap_arr[order];
   if (free_bloc != NULL) { // on prend le premier bloc libre
     // on supprime le bloc de la free list
     list_remove(order, free_bloc);
@@ -160,7 +160,7 @@ void *buddy_malloc(size_t memorySize) {
   }
 
   // On retourne le bloc (sans header) après l'avoir retiré de la free list
-  free_list_t *block_found = heap_arr[order];
+  buddy_free_list_t *block_found = heap_arr[order];
   void *allocated_block =
       (void *)((uintptr_t)block_found + FL_REDUCED_HEADER_SIZE);
   list_remove(order, block_found);
@@ -180,7 +180,8 @@ void buddy_free(void *ptr) {
     return;
   }
 
-  free_list_t *block = (free_list_t *)((uintptr_t)ptr - FL_REDUCED_HEADER_SIZE);
+  buddy_free_list_t *block =
+      (buddy_free_list_t *)((uintptr_t)ptr - FL_REDUCED_HEADER_SIZE);
   if (block->is_free == 1) {
     return;
   }
@@ -194,7 +195,7 @@ void buddy_free(void *ptr) {
     // La formule du buddy fonctionne si les adresses du tas commencent à 0
     uintptr_t buddy_addr = heap_start + (((uintptr_t)block - heap_start) ^
                                          (uintptr_t)(1ULL << order));
-    free_list_t *buddy = (free_list_t *)buddy_addr;
+    buddy_free_list_t *buddy = (buddy_free_list_t *)buddy_addr;
 
     if (buddy_addr >= heap_end || buddy->is_free == 0 ||
         buddy->order != order) {
@@ -245,8 +246,8 @@ void *buddy_realloc(void *pointer, size_t memorySize) {
     return NULL;
   }
 
-  free_list_t *block =
-      (free_list_t *)((uintptr_t)pointer - FL_REDUCED_HEADER_SIZE);
+  buddy_free_list_t *block =
+      (buddy_free_list_t *)((uintptr_t)pointer - FL_REDUCED_HEADER_SIZE);
   uint8_t order = block->order;
   size_t cur_size = (1ULL << order) - FL_REDUCED_HEADER_SIZE;
 

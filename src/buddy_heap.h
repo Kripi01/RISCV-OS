@@ -4,12 +4,12 @@
 #include <stddef.h>
 #include <stdint.h>
 
-typedef struct free_list_s {
+typedef struct buddy_free_list_s {
   uint8_t order;
   uint8_t is_free;
-  struct free_list_s *prev;
-  struct free_list_s *next;
-} free_list_t;
+  struct buddy_free_list_s *prev;
+  struct buddy_free_list_s *next;
+} buddy_free_list_t;
 
 #define FL_HEADER_SIZE sizeof(free_list_t)
 // On gagne 16 octets en laissant l'utilisateur écraser prev et next
