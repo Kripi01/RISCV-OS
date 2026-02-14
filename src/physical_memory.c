@@ -58,8 +58,8 @@ void init_frames() {
   clear_bitmap((uintptr_t)fl_head);
 
   free_list_t *cur = fl_head;
-  for (uintptr_t pa = (uintptr_t)fl_head + FRAMESIZE; pa < memory_end;
-       pa += FRAMESIZE) {
+  for (uintptr_t pa = (uintptr_t)fl_head + FRAMESIZE;
+       pa + FRAMESIZE <= memory_end; pa += FRAMESIZE) {
     // on ajoute la frame à la free list. Les headers sont espacés de 4KB
     cur->next = (free_list_t *)pa;
     cur = (free_list_t *)pa;
