@@ -49,7 +49,6 @@ void s_trap_handler(uint64_t scause, uint64_t sie, uint64_t sip) {
   }
 
   int64_t is_interrupt = (int64_t)scause < 0; // MSB à 1 ?
-
   if (is_interrupt) {
     uint64_t masked_scause = scause & 0x7FFFFFFFFFFFFFFF;
     switch (masked_scause) {
@@ -96,8 +95,12 @@ void s_trap_handler(uint64_t scause, uint64_t sie, uint64_t sip) {
     // another interrupt trap
   }
 
-  else {
-    // TODO:
+  else { // Exceptions
+    if (EXC_IS_PF(scause)) {
+      printf("Segmentation fault (core not dumped)\n");
+
+      fin_processus(); // Une segfault kill le processus actif
+    }
   }
 }
 

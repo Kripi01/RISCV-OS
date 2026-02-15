@@ -111,6 +111,13 @@
 #define IRQ_S_SFT 1
 #define IRQ_S_TMR 5
 #define IRQ_S_EXT 9
+// Page faults
+#define EXC_INSTRUCTION_PF 12
+#define EXC_LOAD_PF 13
+#define EXC_STORE_PF 15
+#define EXC_IS_PF(scause)                                                      \
+  ((scause) == EXC_INSTRUCTION_PF || (scause) == EXC_LOAD_PF ||                \
+   (scause) == EXC_STORE_PF)
 
 // Bits in mie/sie
 #define SSIE (1 << 1)

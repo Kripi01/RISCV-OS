@@ -86,6 +86,13 @@ int proc3() {
   return 0;
 }
 
+int segfault_test() {
+  int *p = NULL;
+  *p = 42;
+  printf("p: %p, *p: %d\n", p, *p);
+  return 0;
+}
+
 int help() {
   printf("Commandes disponibles: help, ps, true, false, bash, clear\n");
   return 0;

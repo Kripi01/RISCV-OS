@@ -2,9 +2,6 @@
 // https://media.eyolfson.com/courses/utoronto/ece353/2024-winter/lecture-11.pdf
 // https://cs326-s25.cs.usfca.edu/guides/page-tables
 
-// TODO: Mapper l'adresse virtuelle 0x0 à une zone non valide afin de lever une
-// page fault
-// TODO: Gérer les page fault
 // TODO: Refaire une nouvelle page table pour chaque processus (satp)
 
 #include "vm.h"
@@ -12,7 +9,6 @@
 #include "pm.h"
 #include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <string.h>
 
 extern char _kernel_start;
@@ -22,6 +18,10 @@ extern uintptr_t memory_end;
 // TODO: faire une fonction d'initialisation de satp (avec les modes, etc)
 
 static void identity_map(pagetable_t root_pt_pa) {
+  // On mappe l'adresse 0 vers une page n'ayant pas le flag valid, pour que le
+  // déréférencement de NULL provoque une page fault
+  map_page(root_pt_pa, 0, 0, 0);
+
   // On mappe la RAM
   for (uintptr_t addr = addr_kernel_start; addr < memory_end;
        addr += PAGESIZE) {
@@ -71,11 +71,6 @@ pagetable_t init_vm() {
   return root_pt_pa;
 }
 
-void raise_page_fault() {
-  // TODO:
-  printf("Page fault!!!!\n");
-}
-
 // Descend les niveaux de la hiérarchie de la pagetable pour trouver la pa
 // associée à l'adresse virtuelle va.
 pte_t *walk(pagetable_t pagetable, uintptr_t va, int alloc) {
@@ -104,7 +99,7 @@ pte_t *walk(pagetable_t pagetable, uintptr_t va, int alloc) {
 
 void map_page(pagetable_t base, uintptr_t va, uintptr_t pa, uint8_t flags) {
   pte_t *pte = walk(base, va, 1);
-  *pte = PA2PTE(pa) | flags | PTE_V;
+  *pte = PA2PTE(pa) | flags;
 
   // On flushe le TLB
   __asm__("sfence.vma zero, zero");
