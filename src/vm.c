@@ -2,7 +2,6 @@
 // https://media.eyolfson.com/courses/utoronto/ece353/2024-winter/lecture-11.pdf
 // https://cs326-s25.cs.usfca.edu/guides/page-tables
 
-// TODO: Refaire une nouvelle page table pour chaque processus (satp)
 // TODO: Faire un unmap_pages
 
 #include "vm.h"
@@ -57,30 +56,28 @@ static void identity_mapping(pagetable_t root) {
     map_page(root, addr, addr, PTE_RWXV);
   }
   // TODO: Mapper le kernel en lecture seule et le reste de la RAM en RWXV
+  // Cela protégera la bitmap/freelist de pm.c
 }
 
-// Passe d'un adressage physique vers un adressage virtuelle.
-pagetable_t init_vm() {
-  init_frames();
-  pagetable_t root_pa = (pagetable_t)get_frame();
-  uint64_t root_ppn = GET_PPN(PA2PTE(root_pa));
+// Passe d'un adressage physique vers un adressage virtuel.
+uint64_t init_vm(uint64_t asid) {
+  // root n'est plus toujours une pa, ça l'est seulement pour idle
+  pagetable_t root = (pagetable_t)get_frame();
+  uint64_t root_ppn = GET_PPN(PA2PTE(root));
 
   // Les autres schemes (Bare, Sv48 et Sv57) ne sont pas pris en charge
   uint64_t sv39 = 8ULL << 60;
-  root_ppn = sv39 | root_ppn;
+  uint64_t satp = sv39 | (asid << 44) | root_ppn;
 
   // On mappe l'adresse 0 vers une page n'ayant pas le flag valid, pour que
   // *NULL provoque une page fault
-  map_page(root_pa, 0, 0, 0);
+  map_page(root, 0, 0, 0);
 
-  devices_mapping(root_pa);
-  // identity_mapping(root_pt_pa);
-  double_mapping(root_pa);
+  devices_mapping(root);
+  identity_mapping(root);
+  // double_mapping(root);
 
-  __asm__("csrw satp, %0" ::"r"(root_ppn));
-  __asm__("sfence.vma zero, zero");
-
-  return root_pa;
+  return satp;
 }
 
 // Descend les niveaux de la hiérarchie de la pagetable pour trouver la pte
@@ -115,6 +112,6 @@ void map_page(pagetable_t root, uintptr_t va, uintptr_t pa, uint8_t flags) {
   pte_t *pte = walk(root, va, 1);
   *pte = PA2PTE(pa) | flags;
 
-  // On flushe le TLB
-  __asm__("sfence.vma zero, zero");
+  // On flushe dans le TLB la page d'adresse va pour tous les processus
+  __asm__("sfence.vma %0, zero" ::"r"(va)); // PERF:
 }

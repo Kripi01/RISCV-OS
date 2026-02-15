@@ -1,8 +1,12 @@
+// TODO: Free les PTE à la mort d'un processus!!!! (grosse memory leak!!!)
+// TODO: Enlever quelques commentaires
+
 #include "process.h"
 #include "cpu.h"
 #include "interrupt.h"
 #include "platform.h"
 #include "screen.h"
+#include "vm.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -25,10 +29,19 @@ void init_proc() {
   snprintf(p->nom, MAX_CHAR_NAME, "idle");
   p->etat = ELU;
   p->contexte[0] = (uint64_t)idle;
-  p->contexte[1] = (uint64_t)(p->pile + PROCESS_STACK_SIZE);
+  p->contexte[1] = (uint64_t)(p->pile + PROCESS_STACK_SIZE - 1);
 
+  // On sauvegarde l'adresse (à peu près -> satp) de la racine de la page table
+  // du processus. Pour idle seulement, les adresses sont physiques car c'est le
+  // premier passage à la mémoire virtuelle.
+  uint64_t satp = init_vm(p->pid); // on utilise le PID pour l'ASID (unicité)
+  p->pile[PROCESS_STACK_SIZE - 1] = satp;
   actif = p;
   max_nb_pid = 1;
+
+  // On change directement l'adressage
+  __asm__("csrw satp, %0" ::"r"(satp));
+  __asm__("sfence.vma zero, zero");
 }
 
 // Renvoie le pid du processus créé, ou -1 en cas d'erreur. Ne gère pas la
@@ -72,11 +85,19 @@ int64_t cree_processus(int code(), char *nom) {
   // Il faut stocker l'argument de proc_launcher dans la pile pour que ctx_sw
   // puisse appeler proc_launcher avec le bon argument. À la création, la pile
   // du processus est quasi vide. Le sp du processus est donc
-  // à la dernière adresse de p->pile car le sommet de la pile est la
+  // à l'avant-dernière adresse de p->pile car le sommet de la pile est la
   // fin de la zone mémoire allouée et on stocke seulement l'argument de
-  // proc_launcher
-  p->contexte[1] = (uint64_t)(p->pile + (PROCESS_STACK_SIZE - 1));
+  // proc_launcher et satp
+  // p->contexte[1] == sp
+  p->contexte[1] = (uint64_t)(p->pile + (PROCESS_STACK_SIZE - 2));
   p->pile[PROCESS_STACK_SIZE - 1] = (uint64_t)code;
+  // On sauvegarde l'adresse (à peu près -> satp) de la racine de la page table
+  // du processus. Cette adresse est virtuelle potentiellement sur plusieurs
+  // niveaux d'indirections (plusieurs page tables de plusieurs processus), le
+  // sommet étant la page table de idle.
+  uint64_t satp = init_vm(p->pid); // on utilise le PID pour l'ASID (unicité)
+  p->pile[PROCESS_STACK_SIZE - 2] = satp;
+  // On changera l'adressage lors du context switch
 
   return p->pid;
 }
@@ -106,7 +127,7 @@ void ordonnance() {
 
   affiche_etats();
 
-  // WARNING: Il faut exécuter ctx_sw en dernier car ctx_sw modifie les
+  // Il faut exécuter ctx_sw en dernier car ctx_sw modifie les
   // registres et ne les stocke pas sur la pile.
   ctx_sw(prev_actif->contexte, next_process->contexte);
 }

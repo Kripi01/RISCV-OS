@@ -6,11 +6,11 @@
 #include "interrupt.h"
 #include "keyboard.h"
 #include "platform.h"
+#include "pm.h"
 #include "process.h"
 #include "screen.h"
 #include "shell.h"
 #include "uart.h"
-#include "vm.h"
 #include <stdint.h>
 #include <stdio.h>
 
@@ -142,7 +142,7 @@ void kernel_start() {
   init_traitant(mon_traitant); // pour le mode S
   enable_timer();
 
-  pagetable_t root_pt = init_vm();
+  init_frames();
 
   init_proc(); // crée idle et l'élit.
 

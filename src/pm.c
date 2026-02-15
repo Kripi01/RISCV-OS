@@ -1,5 +1,6 @@
 // TODO: Utiliser le buddy_allocator sur des blocs de taille minimale FRAMESIZE
 // pour vraiment copier le kernel Linux
+// TODO: Virer la free list car c'est redondant avec la bitmap ???
 
 // SOURCES:
 // https://wiki.osdev.org/Memory_Allocation

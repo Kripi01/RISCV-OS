@@ -9,6 +9,7 @@ ctx_sw:
 ctx_sw_fin_prologue:
   # On sauvegarde dans la zone de contexte du processus 1 les registres 
   # devant être laissés intacts
+  # NOTE: Les autres registres (t0-t6, a0-a7) sont sauvegardés par traitant.S
   sd ra, 0(a0)
   sd sp, 8(a0)
   sd gp, 16(a0)
@@ -52,9 +53,15 @@ ctx_sw_fin_prologue:
   ld t0, 136(a1)
   csrw sstatus, t0
 
-  # Enfin, on donne en argument à proc_launcher (l'adresse de ra) la valeur de la
-  # fonction du processus 2, qui est la première valeur de la pile (cf cree_processus)
-  ld a0, 0(sp)
+  # On donne en argument à proc_launcher (l'adresse de ra) la valeur de la
+  # fonction du processus 2, qui est la première valeur de la pile (cf. cree_processus)
+  ld a0, 8(sp)
+
+  # Enfin, on change l'adresse de la base de la page table
+  ld t0, 0(sp) # cf. cree_processus
+  csrw satp, t0 # Il fallait charger les registres avant de de changer satp
+  # NOTE: Pas besoin de flusher le TLB grâce à l'ASID
+
   ret # Puis on jump vers ra, i.e. vers proc_launcher avec les bons arguments
 
 ctx_sw_debut_epilogue:

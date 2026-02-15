@@ -39,7 +39,7 @@ typedef pte_t *pagetable_t;
 #define PA2PTE(pa) (((uintptr_t)(pa) >> 12) << 10)
 #define GET_PPN(pte) ((pte >> 10) & 0x7FFFFFFFFFF)
 
-pagetable_t init_vm();
+uint64_t init_vm(uint64_t asid);
 void raise_page_fault();
 pte_t *walk(pagetable_t pagetable, uintptr_t va, int alloc);
 void map_page(pagetable_t base, uintptr_t va, uintptr_t pa, uint8_t flags);
