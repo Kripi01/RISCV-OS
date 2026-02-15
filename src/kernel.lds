@@ -11,6 +11,7 @@ MEMORY
 SECTIONS {
 	/* The kernel starts at 0x80000000 */
 	. = 0x80000000;
+  PROVIDE(_kernel_start = .);
 	.text : {
 		*(.text.init) *(.text) *(.text.*)
 		_etext = .;

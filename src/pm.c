@@ -5,7 +5,7 @@
 // https://wiki.osdev.org/Memory_Allocation
 // https://www.kernel.org/doc/gorman/html/understand/understand009.html
 
-#include "physical_memory.h"
+#include "pm.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>

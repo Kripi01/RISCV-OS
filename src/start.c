@@ -1,11 +1,16 @@
+// TODO: Dans tous les fichiers, utiliser au maximum des static pour
+// l'encapsulation
+
 #include "buddy_heap.h"
 #include "cpu.h"
 #include "interrupt.h"
 #include "keyboard.h"
+#include "platform.h"
 #include "process.h"
 #include "screen.h"
 #include "shell.h"
 #include "uart.h"
+#include "vm.h"
 #include <stdint.h>
 #include <stdio.h>
 
@@ -114,6 +119,8 @@ void kernel_start() {
 
   init_traitant(mon_traitant); // pour le mode S
   enable_timer();
+
+  pagetable_t root_pt = init_vm();
 
   init_proc(); // crée idle et l'élit.
 

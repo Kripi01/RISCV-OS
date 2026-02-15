@@ -1,5 +1,5 @@
-#ifndef __FRAME_H__
-#define __FRAME_H__
+#ifndef __PM_H__
+#define __PM_H__
 
 #include <stdint.h>
 
@@ -14,4 +14,4 @@ void init_frames();
 void *get_frame();
 void release_frame(void *frame);
 
-#endif // __FRAME_H__
+#endif // __PM_H__

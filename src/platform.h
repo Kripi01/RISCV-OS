@@ -84,6 +84,16 @@
 #define TIMER_FREQ 10000000 // 10MHz
 #define TIMER_RATIO 500
 
+// Page Table Entry flags
+#define PTE_V (1 << 0) // valid
+#define PTE_R (1 << 1) // read permission
+#define PTE_W (1 << 2) // write permission
+#define PTE_X (1 << 3) // execute permission
+#define PTE_U (1 << 4) // user mode permission
+#define PTE_G (1 << 5) // global mapping
+#define PTE_A (1 << 6) // accessed
+#define PTE_D (1 << 7) // dirty
+
 // Bit in mstatus
 #define MSTATUS_MIE 0x00000008
 // Bit in sstatus
