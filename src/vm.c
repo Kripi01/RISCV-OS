@@ -3,6 +3,7 @@
 // https://cs326-s25.cs.usfca.edu/guides/page-tables
 
 // TODO: Refaire une nouvelle page table pour chaque processus (satp)
+// TODO: Faire un unmap_pages
 
 #include "vm.h"
 #include "platform.h"
@@ -12,66 +13,77 @@
 #include <string.h>
 
 extern char _kernel_start;
-uintptr_t addr_kernel_start = (uintptr_t)&_kernel_start;
-extern uintptr_t memory_end;
+uintptr_t addr_kstart = (uintptr_t)&_kernel_start;
+extern const uintptr_t memory_end; // Défini dans pm.c
 
-// TODO: faire une fonction d'initialisation de satp (avec les modes, etc)
+// Mappe les adresses des périphériques (Écran, PCIE, CLINT, UART, PLIC) en 1:1
+static void devices_mapping(pagetable_t root) {
+  uintptr_t screen_baddr = BOCHS_DISPLAY_BASE_ADDRESS;
+  uintptr_t screen_eaddr = BOCHS_DISPLAY_BASE_ADDRESS + DISPLAY_MEMORY_SIZE;
 
-static void identity_map(pagetable_t root_pt_pa) {
-  // On mappe l'adresse 0 vers une page n'ayant pas le flag valid, pour que le
-  // déréférencement de NULL provoque une page fault
-  map_page(root_pt_pa, 0, 0, 0);
-
-  // On mappe la RAM
-  for (uintptr_t addr = addr_kernel_start; addr < memory_end;
-       addr += PAGESIZE) {
-    map_page(root_pt_pa, addr, addr, PTE_R | PTE_X | PTE_W | PTE_V);
+  for (uintptr_t addr = screen_baddr; addr < screen_eaddr; addr += PAGESIZE) {
+    map_page(root, addr, addr, PTE_RWV);
   }
 
-  // On mappe les adresses de l'écran (config + pixels)
-  // TODO: Utiliser des constantes de kernel.lds au lieu de valeurs hardcodés???
-  for (uintptr_t offset = 0; offset < 0x1000; offset++) {
-    map_page(root_pt_pa, BOCHS_DISPLAY_BASE_ADDRESS + (offset << 12),
-             BOCHS_DISPLAY_BASE_ADDRESS + (offset << 12),
-             PTE_R | PTE_W | PTE_V);
-  }
-  map_page(root_pt_pa, BOCHS_CONFIG_BASE_ADDRESS, BOCHS_CONFIG_BASE_ADDRESS,
-           PTE_R | PTE_W | PTE_V);
+  // Ces périphériques ne prennent qu'une page (=4KB) en mémoire
+  map_page(root, BOCHS_CONFIG_BASE_ADDRESS, BOCHS_CONFIG_BASE_ADDRESS, PTE_RWV);
+  map_page(root, PCI_ECAM_BASE_ADDRESS, PCI_ECAM_BASE_ADDRESS, PTE_RWV);
+  map_page(root, CLINT_MSIP, CLINT_MSIP, PTE_RWV);
+  map_page(root, UART_BASE, UART_BASE, PTE_RWV);
 
-  // On mappe le PCIE
-  map_page(root_pt_pa, PCI_ECAM_BASE_ADDRESS, PCI_ECAM_BASE_ADDRESS,
-           PTE_R | PTE_W | PTE_V);
-
-  // On mappe le CLINT
-  map_page(root_pt_pa, CLINT_MSIP, CLINT_MSIP, PTE_R | PTE_X | PTE_W | PTE_V);
-
-  // On mappe l'UART
-  map_page(root_pt_pa, UART_BASE, UART_BASE, PTE_R | PTE_W | PTE_V);
-
-  // On mappe le PLIC
-  for (uintptr_t offset = 0; offset < 0x4000; offset++) {
-    map_page(root_pt_pa, PLIC_SOURCE_BASE + (offset << 12),
-             PLIC_SOURCE_BASE + (offset << 12), PTE_R | PTE_W | PTE_V);
+  // NOTE: On mappe toutes les adresses du PLIC mais en pratique seul le
+  // premier hart et les 2 contextes sont utilisés
+  uintptr_t plic_baddr = PLIC_SOURCE_BASE;
+  uintptr_t plic_eaddr = PLIC_SOURCE_BASE + PLIC_MEMORY_SIZE;
+  for (uintptr_t addr = plic_baddr; addr < plic_eaddr; addr += PAGESIZE) {
+    map_page(root, addr, addr, PTE_RWV);
   }
 }
 
+// Mappe les adresses 0x80000000-0xC0000000 en 1:1 ET 0x100000000-0x140000000
+// (virtuelles) vers 0x80000000-0xC0000000 (physiques).
+static void double_mapping(pagetable_t root) {
+  for (uintptr_t addr = 0x80000000; addr < 0xC0000000; addr += PAGESIZE) {
+    map_page(root, addr, addr, PTE_RWXV);
+    // Autre mapping (2 va pointent donc vers la même pa)
+    map_page(root, addr - 0x80000000 + 0x100000000, addr, PTE_RWXV);
+  }
+}
+
+// Mappe les adresses de la RAM en 1:1
+static void identity_mapping(pagetable_t root) {
+  // On mappe la RAM. NOTE: le tas est mappé ici car il est compris dans la RAM
+  for (uintptr_t addr = addr_kstart; addr < memory_end; addr += PAGESIZE) {
+    map_page(root, addr, addr, PTE_RWXV);
+  }
+  // TODO: Mapper le kernel en lecture seule et le reste de la RAM en RWXV
+}
+
+// Passe d'un adressage physique vers un adressage virtuelle.
 pagetable_t init_vm() {
   init_frames();
-  pagetable_t root_pt_pa = (pagetable_t)get_frame();
-  uint64_t root_pt_ppn = GET_PPN(PA2PTE(root_pt_pa));
+  pagetable_t root_pa = (pagetable_t)get_frame();
+  uint64_t root_ppn = GET_PPN(PA2PTE(root_pa));
 
+  // Les autres schemes (Bare, Sv48 et Sv57) ne sont pas pris en charge
   uint64_t sv39 = 8ULL << 60;
-  root_pt_ppn = sv39 | root_pt_ppn;
+  root_ppn = sv39 | root_ppn;
 
-  identity_map(root_pt_pa);
+  // On mappe l'adresse 0 vers une page n'ayant pas le flag valid, pour que
+  // *NULL provoque une page fault
+  map_page(root_pa, 0, 0, 0);
 
-  __asm__("csrw satp, %0" ::"r"(root_pt_ppn));
+  devices_mapping(root_pa);
+  // identity_mapping(root_pt_pa);
+  double_mapping(root_pa);
+
+  __asm__("csrw satp, %0" ::"r"(root_ppn));
   __asm__("sfence.vma zero, zero");
 
-  return root_pt_pa;
+  return root_pa;
 }
 
-// Descend les niveaux de la hiérarchie de la pagetable pour trouver la pa
+// Descend les niveaux de la hiérarchie de la pagetable pour trouver la pte
 // associée à l'adresse virtuelle va.
 pte_t *walk(pagetable_t pagetable, uintptr_t va, int alloc) {
   // TODO: gestion de pte.A et pte.D
@@ -97,8 +109,10 @@ pte_t *walk(pagetable_t pagetable, uintptr_t va, int alloc) {
   return &pagetable[GET_LINDEX(va, 0)];
 }
 
-void map_page(pagetable_t base, uintptr_t va, uintptr_t pa, uint8_t flags) {
-  pte_t *pte = walk(base, va, 1);
+// Mappe une adresse virtuelle va à une adresse physique pa avec les flags
+// donnés, dans la pagetable ayant pour adresse root.
+void map_page(pagetable_t root, uintptr_t va, uintptr_t pa, uint8_t flags) {
+  pte_t *pte = walk(root, va, 1);
   *pte = PA2PTE(pa) | flags;
 
   // On flushe le TLB

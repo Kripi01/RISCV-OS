@@ -46,6 +46,9 @@
 #define DISPLAY_BPP 32
 #define DISPLAY_SIZE (DISPLAY_WIDTH * DISPLAY_HEIGHT)
 
+// Le nombre de bytes que l'écran occupe en mémoire
+#define DISPLAY_MEMORY_SIZE (DISPLAY_SIZE * 4)
+
 // Info bus PCI
 #define PCI_ECAM_BASE_ADDRESS 0x30000000
 #define DISPLAY_PCI_ID 0x11111234
@@ -67,6 +70,8 @@
 
 #define PLIC_IRQ_CLAIM_BASE 0x0c200004
 #define PLIC_IRQ_CLAIM(ctxt) (PLIC_IRQ_CLAIM_BASE + ((ctxt) << 12))
+
+#define PLIC_MEMORY_SIZE 0x4000000
 
 // PLIC pushbutton irq
 #define PLIC_IRQ_2 0x2
@@ -93,6 +98,8 @@
 #define PTE_G (1 << 5) // global mapping
 #define PTE_A (1 << 6) // accessed
 #define PTE_D (1 << 7) // dirty
+#define PTE_RWXV (PTE_R | PTE_W | PTE_X | PTE_V)
+#define PTE_RWV (PTE_R | PTE_W | PTE_V)
 
 // Bit in mstatus
 #define MSTATUS_MIE 0x00000008

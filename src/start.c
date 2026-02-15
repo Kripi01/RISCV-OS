@@ -93,6 +93,21 @@ int segfault_test() {
   return 0;
 }
 
+int double_mapping_test() {
+  uint8_t variable = 42;
+  uint8_t *ptr1 = &variable;
+  uint8_t *ptr2 = ptr1 + 0x80000000; /* + 2 GiB */
+
+  printf("ptr1 @%p = %u\n", ptr1, *ptr1);
+  printf("ptr2 @%p = %u\n", ptr2, *ptr2);
+  if (*ptr1 == *ptr2)
+    printf("Test mémoire virtuelle OK\n");
+  else
+    printf("Test mémoire virtuelle FAIL\n");
+
+  return 0;
+}
+
 int help() {
   printf("Commandes disponibles: help, ps, true, false, bash, clear\n");
   return 0;
