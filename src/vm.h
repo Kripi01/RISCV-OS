@@ -43,6 +43,5 @@ uint64_t init_vm(uint64_t asid);
 void raise_page_fault();
 pte_t *walk(pagetable_t pt, uintptr_t va, int alloc);
 void map_page(pagetable_t base, uintptr_t va, uintptr_t pa, uint64_t flags);
-// void freewalk(pagetable_t pt);
 
 #endif // __VM_H__

@@ -10,6 +10,9 @@
 // TODO: Ne mapper le kernel qu'une seule fois pour idle et ensuite juste copier
 // les mappings pour les autres processus
 
+// TODO: Quand j'aurai implémenté le mode user: freewalk pour libérer les page
+// tables
+
 #include "vm.h"
 #include "platform.h"
 #include "pm.h"
@@ -131,28 +134,3 @@ void map_page(pagetable_t root, uintptr_t va, uintptr_t pa, uint64_t flags) {
     __asm__("sfence.vma %0, zero" ::"r"(va)); // PERF:
   }
 }
-
-// // Libère récursivement LES BRANCHES d'une page table. Si une des feuilles de
-// la
-// // page table n'a pas été unmapped alors avorte la libération
-// // TODO: Simplifier le code avec le bit U quand j'aurai implémenté le mode
-// user
-// // BUG: Rien n'est libéré...
-// void freewalk(pagetable_t pt) {
-//   for (int i = 0; i < PTE_PER_PAGE; i++) {
-//     pte_t pte = pt[i];
-//     if ((pte & PTE_V) && (pte & (PTE_R | PTE_W | PTE_X)) == 0) {
-//       // La PTE pointe vers une page table de niveau inférieur
-//       pagetable_t child = (pagetable_t)PTE2PA(pte);
-//       // PERF: Récursion au plus pour 3 niveaux
-//       freewalk(child);
-//       pt[i] = 0; // on libère le mapping (évite la double libération si
-//                  // deux va sont mappées vers la même pa)
-//
-//     } else if (pte & PTE_V) {
-//       printf("freewalk error: feuille atteinte\n");
-//       return;
-//     }
-//   }
-//   release_frame(pt);
-// }

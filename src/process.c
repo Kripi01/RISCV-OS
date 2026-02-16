@@ -1,5 +1,4 @@
 // TODO: Free les PTE à la mort d'un processus!!!! (grosse memory leak!!!)
-// TODO: Enlever quelques commentaires
 
 #include "process.h"
 #include "cpu.h"
@@ -17,12 +16,9 @@ static process_t *actif;
 static char *nom_etats[5] = {"ELU", "ACTIVABLE", "ENDORMI", "MORT",
                              "EN ATTENTE"};
 
-// Initialise (ou de réinitialise) le système pour la gestion des processus.
-// Cette fonction ne démarre pas de nouveau processus.
+// (Ré)initialise la gestion des processus. Idle devient le processus actif.
 void init_proc() {
-  // Le processus de pid 0 est toujours nommé idle. Par défaut, c'est lui qui
-  // est actif car dans un système, il doit toujours y avoir au moins un
-  // processus actif, car le système ne doit jamais s'arrêter.
+  // PID 0 (idle) -> indispensable pour que le système soit toujours actif
   process_t *p = &scheduler[0];
   p->pid = 0;
   p->pid_parent = 0; // arbitraire car jamais utilisé pour idle
@@ -31,31 +27,28 @@ void init_proc() {
   p->contexte[0] = (uint64_t)idle;
   p->contexte[1] = (uint64_t)(p->pile + PROCESS_STACK_SIZE - 1);
 
-  // On sauvegarde l'adresse (à peu près -> satp) de la racine de la page table
-  // du processus. Pour idle seulement, les adresses sont physiques car c'est le
-  // premier passage à la mémoire virtuelle.
+  // Initialise la mémoire virtuelle (satp)
   uint64_t satp = init_vm(p->pid);
   p->satp = satp;
-  // On met satp aussi sur la pile
-  p->pile[PROCESS_STACK_SIZE - 1] = satp;
+  p->pile[PROCESS_STACK_SIZE - 1] = satp; // satp est aussi sur la pile
 
+  // idle devient le processus courant
   actif = p;
   max_nb_pid = 1;
 
-  // On change directement l'adressage
+  // On bascule directement l'adressage (pagination active)
   __asm__("csrw satp, %0" ::"r"(satp));
   __asm__("sfence.vma zero, zero");
 }
 
-// Renvoie le pid du processus créé, ou -1 en cas d'erreur. Ne gère pas la
-// filiation du processus (il faut appeler waitpid)
+// Crée un processus, sans l'élire, et renvoie son PID (ou -1 si erreur).
+// Ne gère pas la filiation (cf. waitpid)
 int64_t cree_processus(int code(), char *nom) {
   if (max_nb_pid >= MAX_NB_PROCESSES) {
     return -1;
   }
 
-  // On prend un PID de processus MORT ou un nouveau PID si aucun processus mort
-  // (dans ce cas, on incrémente le nombre max de PID "en circulation")
+  // On récupère PID disponible (de processus MORT ou bien un nouveau PID)
   int new_pid = -1;
   for (int i = 0; i < max_nb_pid; i++) {
     if ((&scheduler[i])->etat == MORT) {
@@ -63,7 +56,6 @@ int64_t cree_processus(int code(), char *nom) {
       break;
     }
   }
-
   if (new_pid == -1) {
     new_pid = max_nb_pid;
     max_nb_pid++;
@@ -72,49 +64,35 @@ int64_t cree_processus(int code(), char *nom) {
   process_t *p = &scheduler[new_pid];
   p->pid = new_pid;
   p->etat = ACTIVABLE;
-  // On utilise snprintf et pas strncpy car on veut le caractère de terminaison
-  // '\0' pour afficher l'état des processus ensuite.
+  // snprintf et pas strncpy pour garantir le caractère de terminaison '\0'
   snprintf(p->nom, MAX_CHAR_NAME, "%s", nom);
 
-  // NOTE: p->contexte et p->pile ne sont remplis que partiellement lors de la
-  // création du processus. Ils seront complétés par ctx_sw après le premier
-  // context switch.
-
-  // On stocke l'adresse de proc_launcher (l'adresse de la première instruction)
-  // dans l'emplacement ra du contexte associé pour que lors du premier appel de
-  // ctx_sw, ret saute au début de la fonction.
+  // pour le saut lors du premier context switch (p->contexte[0] == ra)
   p->contexte[0] = (uint64_t)proc_launcher;
 
-  // Il faut stocker l'argument de proc_launcher dans la pile pour que ctx_sw
-  // puisse appeler proc_launcher avec le bon argument. À la création, la pile
-  // du processus est quasi vide. Le sp du processus est donc
-  // à l'avant-dernière adresse de p->pile car le sommet de la pile est la
-  // fin de la zone mémoire allouée et on stocke seulement l'argument de
-  // proc_launcher et satp
-  // p->contexte[1] == sp
+  // On stocke l'adresse du processus et satp sur la pile (p->contexte[1] == sp)
   p->contexte[1] = (uint64_t)(p->pile + (PROCESS_STACK_SIZE - 2));
+
   p->pile[PROCESS_STACK_SIZE - 2] = (uint64_t)code;
-  // On sauvegarde l'adresse (à peu près -> satp) de la racine de la page table
-  // du processus. Cette adresse est virtuelle potentiellement sur plusieurs
-  // niveaux d'indirections (plusieurs page tables de plusieurs processus), le
-  // sommet étant la page table de idle.
   uint64_t satp = init_vm(p->pid); // on utilise le PID pour l'ASID (unicité)
   p->satp = satp;
-  // On met aussi satp sur la pile
   p->pile[PROCESS_STACK_SIZE - 1] = satp;
-  // On changera l'adressage lors du context switch
+  // On bascule l'adressage lors du context switch
+  // NOTE: p->contexte et p->pile ne sont remplis que partiellement lors de la
+  // création du processus. Ils seront complétés par ctx_sw.
 
   return p->pid;
 }
 
-// Implémente la politique d'ordonnancement en choisissant le prochain processus
-// à activer et provoque le changement de processus.
+// Sélectionne le prochain processus (via la politique de Round-robin) et
+// provoque le changement de contexte.
 void ordonnance() {
   uint64_t next_idx = actif->pid + 1;
   process_t *next_process = &scheduler[next_idx % max_nb_pid];
-  // On trouve le prochain processus (idle vérifie toujours ces conditions)
-  // L'heure de réveil est correcte que lorsque le processus est endormi. Sinon,
-  // elle est périmée.
+
+  // On parcourt le scheduler pour trouver le prochain processus activable (il y
+  // a toujours au moins idle). On ignore les processus morts, en attente ou
+  // endormis (si l'heure de réveil n'est pas atteinte)
   uint64_t n = nbr_secondes();
   while (next_process->etat == MORT || next_process->etat == EN_ATTENTE ||
          (next_process->etat == ENDORMI && next_process->heure_reveil > n)) {
@@ -122,8 +100,8 @@ void ordonnance() {
     next_process = &scheduler[next_idx % max_nb_pid];
   }
 
-  // Si l'état actif n'a pas été endormi ou tué ou en_attente, alors on le met
-  // en activable, sinon on le laisse endormi ou tué ou en_attente
+  // L'ancien processus devient activable SSI il était élu (sinon il ne bouge
+  // pas) et le nouveau devient élu
   actif->etat = actif->etat == ELU ? ACTIVABLE : actif->etat;
   next_process->etat = ELU;
 
@@ -150,66 +128,34 @@ void dors(uint64_t nbr_secs) {
   ordonnance();
 }
 
-// // Vide la mémoire virtuelle du processus actif (à tuer). Bascule sur
-// // l'adressage de idle.
-// static void clear_process_memory() {
-//   // On bascule d'abord sur la table de idle (toujours valide) avant de
-//   détruire
-//   // la table du processus actif
-//   uint64_t satp_idle = (&scheduler[0])->satp;
-//   __asm__("csrw satp, %0" ::"r"(satp_idle));
-//   __asm__("sfence.vma zero, zero");
-//
-//   uint64_t satp = actif->satp;
-//   uint64_t root_ppn = satp & 0xFFFFFFFFFFF;
-//   // Comme root est aligné sur 4KB grâce à get_frame, l'offset est 0, donc on
-//   // peut retrouver l'adresse physique seuelement avec le PPN
-//   pagetable_t root_pa = (pagetable_t)(root_ppn << 12);
-//
-//   freewalk(root_pa);
-//   // release_frame(root_pa);
-// }
-
-// Kill le processus actif et remet son parent en activable (s'il n'a pas changé
-// d'état depuis). Enfin, change de processus (ne redonne pas forcément la main
-// au processus parent).
+// Kill le processus actif et réactive son parent (sans forcément l'élire)
 // WARNING: Cette fonction ne doit jamais être appelée sur idle.
 void fin_processus() {
   // TODO: Vider la mémoire occupée par le processus
-  // clear_process_memory();
-  // Cette opération prend du temps, donc il y a souvent un context switch. On
-  // marque donc le processus comme mort APRÈS avoir vidé la mémoire pour
-  // pouvoir revenir dessus
-
   actif->etat = MORT;
 
   process_t *parent = (&scheduler[actif->pid_parent]);
   // Si le parent est mort entre temps alors on ne le réanime pas!
   if (parent->etat == EN_ATTENTE) {
-    // Le processus parent est de nouveau activable.
-    (&scheduler[actif->pid_parent])->etat = ACTIVABLE;
+    (&scheduler[actif->pid_parent])->etat = ACTIVABLE; // on réactive le parent
   }
 
   ordonnance();
 }
 
-// Le processus actif passe en attente jusqu'à ce que le processus fils
-// (PID=pid) soit mort (cf. fin_processus). On change donc de processus (on ne
-// passe pas nécessairement au processus fils)
+// Met le processus actif en attente de la mort d'un fils spécifique (PID=pid)
 void waitpid(int64_t pid) {
   process_t *p = &scheduler[pid];
 
   actif->etat = EN_ATTENTE;
   p->pid_parent = actif->pid;
 
-  ordonnance();
+  ordonnance(); // le prochain prorcessus n'est pas forcément le fils
 }
 
-// Affiche l'état de chaque processus en haut à gauche de l'écran
+// Affiche l'état de chaque processus en haut à gauche de l'écran (élu == vert)
 void affiche_etats() {
-  // La taille du buffer est choisie pour que ça n'écrase pas l'heure (le max
-  // sans écraser étant 118)
-  const uint64_t len_buffer = 115;
+  const uint64_t len_buffer = 115; // pour ne pas écraser l'heure (max = 118)
 
   // On vide la ligne d'abord
   for (uint64_t i = 0; i < FONT_HEIGHT; i++) {
@@ -218,38 +164,38 @@ void affiche_etats() {
            BLACK, BYTES_PER_PIXEL * len_buffer * FONT_WIDTH);
   }
 
-  char s[len_buffer];
-  uint64_t pos = 0;
+  // Puis on affiche la chaîne de caractères (nom + PID + état)
+  uint64_t col = 0;
   for (int i = 0; i < max_nb_pid; i++) {
     process_t *p = &scheduler[i];
     // On n'affiche pas les processus morts
     if (p->etat != MORT) {
-      int remaining = len_buffer - pos;
-      pos += snprintf(s + pos, remaining, "%s(PID=%ld):%s ", p->nom, p->pid,
-                      nom_etats[p->etat]);
-    }
-  }
+      char tmp[len_buffer];
+      int n = snprintf(tmp, len_buffer, "%s(PID=%ld):%s ", p->nom, p->pid,
+                       nom_etats[p->etat]);
 
-  for (uint64_t i = 0; i < pos; i++) {
-    ecrit_car(0, i, s[i], WHITE, BLACK);
+      for (int j = 0; j < n && col < len_buffer; j++) {
+        ecrit_car(0, col, tmp[j], p->etat == ELU ? GREEN : WHITE, BLACK);
+        col++;
+      }
+    }
   }
 }
 
-// Lance le processus en argument et s'assure de la terminaison de celui-ci à la
-// fin de son exécution.
-// NOTE: Comme idle ne termine jamais, on arrive jamais à l'instruction
-// fin_processus, donc idle n'est jamais killed.
+// Lance le processus en argument et s'assure de la terminaison de celui-ci.
 void proc_launcher(int proc()) {
-  // On force les nouveaux processus à commencer avec les interruptions timer
-  // autorisées (ils peuvent toujours les désactiver ensuite). Ça fixe le bug de
-  // non-actualisation de l'horloge quand un processus est lancé par un
-  // processus ayant les interruptions désactivées (bash par exemple).
+  // Les nouveaux processus commencent avec les interruptions timer autorisées.
+  // Ça fixe le bug de non-actualisation de l'horloge quand un processus est
+  // lancé par un processus ayant les interruptions désactivées e.g. bash
   s_enable_it();
 
   proc();
+
+  // NOTE: idle ne termine jamais donc il n'atteint jamais cette ligne
   fin_processus();
 }
 
+// Commande ps: affiche les processus actifs sous la forme d'un tableau.
 int ps() {
   printf("+-----------------+-------+------------+\n");
   printf("| Nom             | PID   | Etat       |\n");
