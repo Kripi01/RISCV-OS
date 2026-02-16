@@ -34,8 +34,11 @@ void init_proc() {
   // On sauvegarde l'adresse (à peu près -> satp) de la racine de la page table
   // du processus. Pour idle seulement, les adresses sont physiques car c'est le
   // premier passage à la mémoire virtuelle.
-  uint64_t satp = init_vm(p->pid); // on utilise le PID pour l'ASID (unicité)
+  uint64_t satp = init_vm(p->pid);
+  p->satp = satp;
+  // On met satp aussi sur la pile
   p->pile[PROCESS_STACK_SIZE - 1] = satp;
+
   actif = p;
   max_nb_pid = 1;
 
@@ -90,13 +93,15 @@ int64_t cree_processus(int code(), char *nom) {
   // proc_launcher et satp
   // p->contexte[1] == sp
   p->contexte[1] = (uint64_t)(p->pile + (PROCESS_STACK_SIZE - 2));
-  p->pile[PROCESS_STACK_SIZE - 1] = (uint64_t)code;
+  p->pile[PROCESS_STACK_SIZE - 2] = (uint64_t)code;
   // On sauvegarde l'adresse (à peu près -> satp) de la racine de la page table
   // du processus. Cette adresse est virtuelle potentiellement sur plusieurs
   // niveaux d'indirections (plusieurs page tables de plusieurs processus), le
   // sommet étant la page table de idle.
   uint64_t satp = init_vm(p->pid); // on utilise le PID pour l'ASID (unicité)
-  p->pile[PROCESS_STACK_SIZE - 2] = satp;
+  p->satp = satp;
+  // On met aussi satp sur la pile
+  p->pile[PROCESS_STACK_SIZE - 1] = satp;
   // On changera l'adressage lors du context switch
 
   return p->pid;
@@ -145,11 +150,37 @@ void dors(uint64_t nbr_secs) {
   ordonnance();
 }
 
+// // Vide la mémoire virtuelle du processus actif (à tuer). Bascule sur
+// // l'adressage de idle.
+// static void clear_process_memory() {
+//   // On bascule d'abord sur la table de idle (toujours valide) avant de
+//   détruire
+//   // la table du processus actif
+//   uint64_t satp_idle = (&scheduler[0])->satp;
+//   __asm__("csrw satp, %0" ::"r"(satp_idle));
+//   __asm__("sfence.vma zero, zero");
+//
+//   uint64_t satp = actif->satp;
+//   uint64_t root_ppn = satp & 0xFFFFFFFFFFF;
+//   // Comme root est aligné sur 4KB grâce à get_frame, l'offset est 0, donc on
+//   // peut retrouver l'adresse physique seuelement avec le PPN
+//   pagetable_t root_pa = (pagetable_t)(root_ppn << 12);
+//
+//   freewalk(root_pa);
+//   // release_frame(root_pa);
+// }
+
 // Kill le processus actif et remet son parent en activable (s'il n'a pas changé
 // d'état depuis). Enfin, change de processus (ne redonne pas forcément la main
 // au processus parent).
 // WARNING: Cette fonction ne doit jamais être appelée sur idle.
 void fin_processus() {
+  // TODO: Vider la mémoire occupée par le processus
+  // clear_process_memory();
+  // Cette opération prend du temps, donc il y a souvent un context switch. On
+  // marque donc le processus comme mort APRÈS avoir vidé la mémoire pour
+  // pouvoir revenir dessus
+
   actif->etat = MORT;
 
   process_t *parent = (&scheduler[actif->pid_parent]);

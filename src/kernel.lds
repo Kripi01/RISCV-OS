@@ -36,14 +36,18 @@ SECTIONS {
 		*(scommon) *(COMMON)
 		. = ALIGN(8);
 		__bss_end = .;
-
-    /* Le tas est inclu dans les frames physiques */
-		PROVIDE(_heap_start = __bss_end + 8);
-		PROVIDE(_heap_end = _heap_start + 32M); /* Tas de 32MB */
-
-    . = ALIGN(4096); /* La mémoire libre doit être alignée sur 4KB */
-    PROVIDE(_free_memory_start = .);
-    PROVIDE(_memory_end = ORIGIN(ram) + LENGTH(ram));
 	} > ram
+
+  . = ALIGN(4096);
+  PROVIDE(_kernel_end = .); /* _kernel_end est aligné sur 4KB */
+
+  /* Le tas est inclu dans les frames physiques */
+  PROVIDE(_heap_start = .);
+  PROVIDE(_heap_end = _heap_start + 32M); /* Tas de 32MB */
+  . = . + 32M; /* on avance le curseur (PROVIDE ne l'avance pas) */
+
+  . = ALIGN(4096); /* La mémoire libre doit être alignée sur 4KB */
+  PROVIDE(_free_memory_start = .);
+  PROVIDE(_memory_end = ORIGIN(ram) + LENGTH(ram));
 	_end = .;
 }

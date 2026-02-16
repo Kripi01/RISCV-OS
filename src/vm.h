@@ -30,18 +30,19 @@ typedef uint64_t pte_t;
 typedef pte_t *pagetable_t;
 
 // Conversions de va vers vpn:
-#define GET_LINDEX(va, level) ((va) >> (12 + 9 * level)) & 0x1FF
+#define GET_LINDEX(va, level) (((va) >> (12 + 9 * level)) & 0x1FF)
 #define GET_OFFSET(va) ((va) & 0xFFF)
 
 // Utilitaires des PTE
-#define GET_FLAGS(pte) (pte) & 0xFF
+#define GET_FLAGS(pte) ((pte) & 0xFF)
 #define PTE2PA(pte) (((uintptr_t)(pte) >> 10) << 12)
 #define PA2PTE(pa) (((uintptr_t)(pa) >> 12) << 10)
 #define GET_PPN(pte) ((pte >> 10) & 0x7FFFFFFFFFF)
 
 uint64_t init_vm(uint64_t asid);
 void raise_page_fault();
-pte_t *walk(pagetable_t pagetable, uintptr_t va, int alloc);
-void map_page(pagetable_t base, uintptr_t va, uintptr_t pa, uint8_t flags);
+pte_t *walk(pagetable_t pt, uintptr_t va, int alloc);
+void map_page(pagetable_t base, uintptr_t va, uintptr_t pa, uint64_t flags);
+// void freewalk(pagetable_t pt);
 
 #endif // __VM_H__

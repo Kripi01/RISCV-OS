@@ -6,6 +6,10 @@
 // https://wiki.osdev.org/Memory_Allocation
 // https://www.kernel.org/doc/gorman/html/understand/understand009.html
 
+// BUG: Le frame allocator ne peut allouer des frames qu'après
+// free_memory_start, or un frame allocator doit pouvoir allouer des frames dans
+// toute la mémoire
+
 #include "pm.h"
 #include <stddef.h>
 #include <stdint.h>
@@ -21,7 +25,7 @@ const uintptr_t memory_end = (uintptr_t)&_memory_end;
 
 static free_list_t *fl_head;
 static size_t bitmap_size;
-static uint8_t *bitmap; // 0 pour une frame libre et 1 pour une frame utilisé
+static uint8_t *bitmap; // 0 pour une frame libre et 1 pour une frame utilisée
 
 #define GET_PFN(pa) (((uintptr_t)(pa) - free_memory_start) / FRAMESIZE)
 #define IS_USED(pfn) ((bitmap[pfn / 8] >> (pfn % 8)) & 0x1)
@@ -70,7 +74,7 @@ void init_frames() {
   cur->next = NULL; // la dernière frame doit pointer vers NULL
 }
 
-// Retourne une frame libre
+// Retourne une frame libre (donc une adresse alignée sur 4KB)
 void *get_frame() {
   if (fl_head == NULL) {
     printf("get_frame error: plus de frame disponible\n");

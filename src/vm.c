@@ -2,7 +2,13 @@
 // https://media.eyolfson.com/courses/utoronto/ece353/2024-winter/lecture-11.pdf
 // https://cs326-s25.cs.usfca.edu/guides/page-tables
 
-// TODO: Faire un unmap_pages
+// Plan mémoire:
+// On mappe le kernel en 1:1 entre 0x80000000 et 0xBFFFFFFF
+// Un processsus est mappé dans l'espace virtuel à partir de 0x40000000
+// La pile user est mappée à l'adresse virtuelle 0x50000000
+
+// TODO: Ne mapper le kernel qu'une seule fois pour idle et ensuite juste copier
+// les mappings pour les autres processus
 
 #include "vm.h"
 #include "platform.h"
@@ -12,14 +18,15 @@
 #include <string.h>
 
 extern char _kernel_start;
-uintptr_t addr_kstart = (uintptr_t)&_kernel_start;
+uintptr_t kstart = (uintptr_t)&_kernel_start;
+extern char _kernel_end;
+uintptr_t kend = (uintptr_t)&_kernel_end;
 extern const uintptr_t memory_end; // Défini dans pm.c
 
 // Mappe les adresses des périphériques (Écran, PCIE, CLINT, UART, PLIC) en 1:1
 static void devices_mapping(pagetable_t root) {
   uintptr_t screen_baddr = BOCHS_DISPLAY_BASE_ADDRESS;
   uintptr_t screen_eaddr = BOCHS_DISPLAY_BASE_ADDRESS + DISPLAY_MEMORY_SIZE;
-
   for (uintptr_t addr = screen_baddr; addr < screen_eaddr; addr += PAGESIZE) {
     map_page(root, addr, addr, PTE_RWV);
   }
@@ -39,30 +46,21 @@ static void devices_mapping(pagetable_t root) {
   }
 }
 
-// Mappe les adresses 0x80000000-0xC0000000 en 1:1 ET 0x100000000-0x140000000
-// (virtuelles) vers 0x80000000-0xC0000000 (physiques).
-static void double_mapping(pagetable_t root) {
-  for (uintptr_t addr = 0x80000000; addr < 0xC0000000; addr += PAGESIZE) {
-    map_page(root, addr, addr, PTE_RWXV);
-    // Autre mapping (2 va pointent donc vers la même pa)
-    map_page(root, addr - 0x80000000 + 0x100000000, addr, PTE_RWXV);
-  }
-}
-
 // Mappe les adresses de la RAM en 1:1
 static void identity_mapping(pagetable_t root) {
-  // On mappe la RAM. NOTE: le tas est mappé ici car il est compris dans la RAM
-  for (uintptr_t addr = addr_kstart; addr < memory_end; addr += PAGESIZE) {
+  // On mappe le kernel
+  for (uintptr_t addr = kstart; addr < kend; addr += PAGESIZE) {
     map_page(root, addr, addr, PTE_RWXV);
   }
-  // TODO: Mapper le kernel en lecture seule et le reste de la RAM en RWXV
-  // Cela protégera la bitmap/freelist de pm.c
+
+  // Le reste de la RAM (le tas par exemple) ne fait pas partie du kernel.
+  for (uintptr_t addr = kend; addr < memory_end; addr += PAGESIZE) {
+    map_page(root, addr, addr, PTE_RWXV);
+  }
 }
 
-// Passe d'un adressage physique vers un adressage virtuel.
 uint64_t init_vm(uint64_t asid) {
-  // root n'est plus toujours une pa, ça l'est seulement pour idle
-  pagetable_t root = (pagetable_t)get_frame();
+  pagetable_t root = (pagetable_t)get_frame(); // root est aligné sur 4KB
   uint64_t root_ppn = GET_PPN(PA2PTE(root));
 
   // Les autres schemes (Bare, Sv48 et Sv57) ne sont pas pris en charge
@@ -75,43 +73,86 @@ uint64_t init_vm(uint64_t asid) {
 
   devices_mapping(root);
   identity_mapping(root);
-  // double_mapping(root);
+  return satp;
+}
+
+uint64_t init_vm_process(uint64_t asid) {
+  pagetable_t root = (pagetable_t)get_frame(); // root est aligné sur 4KB
+  uint64_t root_ppn = GET_PPN(PA2PTE(root));
+
+  // Les autres schemes (Bare, Sv48 et Sv57) ne sont pas pris en charge
+  uint64_t sv39 = 8ULL << 60;
+  uint64_t satp = sv39 | (asid << 44) | root_ppn;
+
+  // On mappe l'adresse 0 vers une page n'ayant pas le flag valid, pour que
+  // *NULL provoque une page fault
+  map_page(root, 0, 0, 0);
+
+  devices_mapping(root);
+  identity_mapping(root);
 
   return satp;
 }
 
-// Descend les niveaux de la hiérarchie de la pagetable pour trouver la pte
+// Descend les niveaux de la hiérarchie de la pagetable pour renvoyer la pte
 // associée à l'adresse virtuelle va.
-pte_t *walk(pagetable_t pagetable, uintptr_t va, int alloc) {
+pte_t *walk(pagetable_t pt, uintptr_t va, int alloc) {
   // TODO: gestion de pte.A et pte.D
 
   for (int level = LEVELS - 1; level > 0; level--) {
     uint64_t vpn = GET_LINDEX(va, level);
-    pte_t *pte = &pagetable[vpn];
+    pte_t *pte = &pt[vpn];
 
     if (*pte & PTE_V) {
       // On descend dans l'arborescence
-      pagetable = (pagetable_t)PTE2PA(*pte);
+      pt = (pagetable_t)PTE2PA(*pte);
     } else {
-      if (!alloc) {
+      // On alloue une nouvelle page
+      pt = (pagetable_t)get_frame();
+      if (!alloc || pt == NULL) {
         return NULL;
       }
-      // On alloue une nouvelle page
-      pagetable = (pagetable_t)get_frame();
-      memset(pagetable, 0, PAGESIZE);
-      *pte = PA2PTE(pagetable) | PTE_V;
+      memset(pt, 0, PAGESIZE);
+      *pte = PA2PTE(pt) | PTE_V;
     }
   }
 
-  return &pagetable[GET_LINDEX(va, 0)];
+  return &pt[GET_LINDEX(va, 0)];
 }
 
 // Mappe une adresse virtuelle va à une adresse physique pa avec les flags
 // donnés, dans la pagetable ayant pour adresse root.
-void map_page(pagetable_t root, uintptr_t va, uintptr_t pa, uint8_t flags) {
+void map_page(pagetable_t root, uintptr_t va, uintptr_t pa, uint64_t flags) {
   pte_t *pte = walk(root, va, 1);
-  *pte = PA2PTE(pa) | flags;
+  if (pte != NULL) {
+    *pte = PA2PTE(pa) | flags;
 
-  // On flushe dans le TLB la page d'adresse va pour tous les processus
-  __asm__("sfence.vma %0, zero" ::"r"(va)); // PERF:
+    // On flushe dans le TLB la page d'adresse va pour tous les processus
+    __asm__("sfence.vma %0, zero" ::"r"(va)); // PERF:
+  }
 }
+
+// // Libère récursivement LES BRANCHES d'une page table. Si une des feuilles de
+// la
+// // page table n'a pas été unmapped alors avorte la libération
+// // TODO: Simplifier le code avec le bit U quand j'aurai implémenté le mode
+// user
+// // BUG: Rien n'est libéré...
+// void freewalk(pagetable_t pt) {
+//   for (int i = 0; i < PTE_PER_PAGE; i++) {
+//     pte_t pte = pt[i];
+//     if ((pte & PTE_V) && (pte & (PTE_R | PTE_W | PTE_X)) == 0) {
+//       // La PTE pointe vers une page table de niveau inférieur
+//       pagetable_t child = (pagetable_t)PTE2PA(pte);
+//       // PERF: Récursion au plus pour 3 niveaux
+//       freewalk(child);
+//       pt[i] = 0; // on libère le mapping (évite la double libération si
+//                  // deux va sont mappées vers la même pa)
+//
+//     } else if (pte & PTE_V) {
+//       printf("freewalk error: feuille atteinte\n");
+//       return;
+//     }
+//   }
+//   release_frame(pt);
+// }

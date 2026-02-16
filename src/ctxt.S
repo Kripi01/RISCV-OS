@@ -32,7 +32,7 @@ ctx_sw_fin_prologue:
   sd t0, 136(a0)
 
   # On restaure les mêmes registres mais correspondant au processus 2
-  ld ra, 0(a1)
+  ld ra, 0(a1) # Ce ra est mappé avec la page table du processus 2
   ld sp, 8(a1)
   ld gp, 16(a1)
   ld tp, 24(a1)
@@ -55,12 +55,10 @@ ctx_sw_fin_prologue:
 
   # On donne en argument à proc_launcher (l'adresse de ra) la valeur de la
   # fonction du processus 2, qui est la première valeur de la pile (cf. cree_processus)
-  ld a0, 8(sp)
-
-  # Enfin, on change l'adresse de la base de la page table
-  ld t0, 0(sp) # cf. cree_processus
-  csrw satp, t0 # Il fallait charger les registres avant de de changer satp
-  # NOTE: Pas besoin de flusher le TLB grâce à l'ASID
+  ld a0, 0(sp)
+  ld t0, 8(sp) # on charge satp
+  csrw satp, t0
+  sfence.vma zero, zero
 
   ret # Puis on jump vers ra, i.e. vers proc_launcher avec les bons arguments
 
