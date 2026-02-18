@@ -14,6 +14,9 @@
 
 #include <stdint.h>
 
+#define USER_START_ADDR 0x40000000
+#define USER_STACK_ADDRESS 0x50000000
+
 #define PAGESIZE 4096 // 4 kilo bytes
 #define PTESIZE 8
 #define PTE_PER_PAGE (PAGESIZE / PTESIZE) // 512 PTE par page
@@ -38,6 +41,12 @@ typedef pte_t *pagetable_t;
 #define PTE2PA(pte) (((uintptr_t)(pte) >> 10) << 12)
 #define PA2PTE(pa) (((uintptr_t)(pa) >> 12) << 10)
 #define GET_PPN(pte) ((pte >> 10) & 0x7FFFFFFFFFF)
+
+// Utilitaires de SATP (Supervisor Addreess Translation and Protection register)
+// Structure du SATP:
+// 63 --- 60 59 -------- 44 43 --------------- 0
+//   MODE  ||     ASID    ||        PPN
+#define SATP2PT(satp) ((pagetable_t)(((satp) & 0xFFFFFFFFFFF) << 12))
 
 uint64_t init_vm(uint64_t asid);
 void raise_page_fault();

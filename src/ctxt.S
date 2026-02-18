@@ -2,13 +2,12 @@
     .globl ctx_sw
 
 /* Contexte :
- *   contexte1 : registre a0 # contexte1 est un tableau de 18 uint64_t
- *   contexte2 : registre a1 # contexte2 est un tableau de 18 uint64_t
+ *   contexte1 : registre a0 # contexte1 est un tableau de 20 uint64_t
+ *   contexte2 : registre a1 # contexte2 est un tableau de 20 uint64_t
  * */
 ctx_sw:
 ctx_sw_fin_prologue:
-  # On sauvegarde dans la zone de contexte du processus 1 les registres 
-  # devant être laissés intacts
+  # On sauvegarde dans le contexte du proc 1 les registres devant être laissés intacts
   # NOTE: Les autres registres (t0-t6, a0-a7) sont sauvegardés par traitant.S
   sd ra, 0(a0)
   sd sp, 8(a0)
@@ -30,6 +29,10 @@ ctx_sw_fin_prologue:
   sd t0, 128(a0)
   csrr t0, sstatus
   sd t0, 136(a0)
+  csrr t0, satp
+  sd t0, 144(a0)
+  csrr t0, sscratch
+  sd t0, 152(a0)
 
   # On restaure les mêmes registres mais correspondant au processus 2
   ld ra, 0(a1) # Ce ra est mappé avec la page table du processus 2
@@ -51,15 +54,18 @@ ctx_sw_fin_prologue:
   ld t0, 128(a1)
   csrw sepc, t0
   ld t0, 136(a1)
-  csrw sstatus, t0
-
-  # On donne en argument à proc_launcher (l'adresse de ra) la valeur de la
-  # fonction du processus 2, qui est la première valeur de la pile (cf. cree_processus)
-  ld a0, 0(sp)
-  ld t0, 8(sp) # on charge satp
+  csrw sstatus, t0 # Le mode précédent sera donc rétabli (S si idle et U sinon)
+  ld t0, 144(a1)
   csrw satp, t0
+  ld t0, 152(a1)
+  csrw sscratch, t0
+
+  # on flushe le TLB pour que l'écriture de satp soit prise en compte dans le buffer
   sfence.vma zero, zero
 
-  ret # Puis on jump vers ra, i.e. vers proc_launcher avec les bons arguments
+  # On jump vers ra. Au premier context switch du processus, on jump vers init_proc_launcher
+  # qui va appeler proc_launcher (qui passe en mode U) avec le code du processus
+  # (contenu dans s0, cf. processs.c) i.e. vers proc_launcher avec les bons arguments
+  ret
 
 ctx_sw_debut_epilogue:

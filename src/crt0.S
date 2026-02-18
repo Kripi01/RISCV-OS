@@ -8,6 +8,10 @@ entry:
     # quelques fonctions en mode machine
     la sp, stacks + STACK_SIZE
 
+    # on initialise mscratch
+    la t0, stack_m_mode + STACK_SIZE
+    csrw mscratch, t0
+
     # Raz de bss par paquets de 8 octets
     la t0, __bss_start
     la t1, __bss_end
@@ -29,4 +33,6 @@ console_putbytes:
     .align 8
     .global stacks
 stacks:
+    .skip STACK_SIZE
+stack_m_mode:
     .skip STACK_SIZE

@@ -17,6 +17,8 @@ extern int proc3();
 extern int history();
 extern int fg();
 extern int clear();
+extern int buddy_heap_test();
+extern int buddy_heap_overflow_test();
 extern int segfault_test();
 extern int double_mapping_test();
 

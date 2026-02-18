@@ -102,9 +102,11 @@
 #define PTE_RWV (PTE_R | PTE_W | PTE_V)
 
 // Bit in mstatus
-#define MSTATUS_MIE 0x00000008
+#define MSTATUS_MIE (1 << 3)
 // Bit in sstatus
-#define SSTATUS_SIE 0x00000002
+#define SSTATUS_SIE (1 << 1)
+#define SSTATUS_SPIE (1 << 5)
+#define SSTATUS_SPP (1 << 8)
 
 // Bits in masked_mcause
 #define IRQ_M_SFT 3

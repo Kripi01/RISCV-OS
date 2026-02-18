@@ -19,8 +19,7 @@ typedef struct {
   int64_t pid;
   char nom[MAX_CHAR_NAME];
   Status etat;
-  uint64_t contexte[18];
-  uint64_t satp;
+  uint64_t contexte[20];
   uint64_t pile[PROCESS_STACK_SIZE];
   uint64_t heure_reveil;
   int64_t pid_parent;

@@ -1,14 +1,9 @@
 // TODO: Utiliser le buddy_allocator sur des blocs de taille minimale FRAMESIZE
 // pour vraiment copier le kernel Linux
-// TODO: Virer la free list car c'est redondant avec la bitmap ???
 
 // SOURCES:
 // https://wiki.osdev.org/Memory_Allocation
 // https://www.kernel.org/doc/gorman/html/understand/understand009.html
-
-// BUG: Le frame allocator ne peut allouer des frames qu'après
-// free_memory_start, or un frame allocator doit pouvoir allouer des frames dans
-// toute la mémoire
 
 #include "pm.h"
 #include <stddef.h>

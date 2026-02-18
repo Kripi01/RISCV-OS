@@ -1,6 +1,14 @@
+# Traitant d'interruption machine (mtvec), donc exécuté en mode M.
     .globl mon_traitant_m
     .text
 mon_traitant_m:
+  # Si on vient du mode U/S alors sp n'est pas fiable (car provient d'un mode
+  # inférieur) donc on utilise une pile propre au mode machine: mscratch (cf.
+  # crt0.S pour l'initialisation de mscratch).
+  # De plus si on vient du mode U, sp est une adresse virtuelle (e.g. 0x50000000 qui ne
+  # correspond à rien en adresse physique).
+  csrrw sp, mscratch, sp
+
   addi sp, sp, -128
   sd ra, 0(sp)
   sd t0, 8(sp)
@@ -43,4 +51,7 @@ mon_traitant_m_debut_epilogue:
   ld a6, 112(sp)
   ld a7, 120(sp)
   addi sp, sp, 128
+
+  csrrw sp, mscratch, sp # on rétablit le sp user/supervisor
+
   mret

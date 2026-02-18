@@ -1,14 +1,22 @@
 // TODO: Free les PTE à la mort d'un processus!!!! (grosse memory leak!!!)
+// TODO: repositionner les fonctions (refactor)
+// FIX: fin_processus
+// BUG: Interruptions UART en mode U
 
 #include "process.h"
 #include "cpu.h"
 #include "interrupt.h"
 #include "platform.h"
+#include "pm.h"
 #include "screen.h"
 #include "vm.h"
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+
+extern char init_proc_launcher;
+const uintptr_t addr_init_proc_launcher = (uintptr_t)&init_proc_launcher;
 
 static int max_nb_pid = 0;
 static process_t scheduler[MAX_NB_PROCESSES];
@@ -24,13 +32,17 @@ void init_proc() {
   p->pid_parent = 0; // arbitraire car jamais utilisé pour idle
   snprintf(p->nom, MAX_CHAR_NAME, "idle");
   p->etat = ELU;
-  p->contexte[0] = (uint64_t)idle;
-  p->contexte[1] = (uint64_t)(p->pile + PROCESS_STACK_SIZE - 1);
 
-  // Initialise la mémoire virtuelle (satp)
-  uint64_t satp = init_vm(p->pid);
-  p->satp = satp;
-  p->pile[PROCESS_STACK_SIZE - 1] = satp; // satp est aussi sur la pile
+  p->contexte[1] = (uint64_t)(p->pile + PROCESS_STACK_SIZE);
+  // idle est exécuté en mode S, pas de pile user -> toujours le même sp donc on
+  // ne met rien dans sscratch
+  __asm__("csrw sscratch, zero");
+
+  p->contexte[16] = (uint64_t)idle;             // sepc
+  p->contexte[17] = SSTATUS_SPP | SSTATUS_SPIE; // mode S et IRQ enabled
+
+  uint64_t satp = init_vm(p->pid); // on initialise la mémoire virtuelle (satp)
+  p->contexte[18] = satp;
 
   // idle devient le processus courant
   actif = p;
@@ -48,7 +60,7 @@ int64_t cree_processus(int code(), char *nom) {
     return -1;
   }
 
-  // On récupère PID disponible (de processus MORT ou bien un nouveau PID)
+  // On récupère un PID disponible (de processus MORT ou bien un nouveau PID)
   int new_pid = -1;
   for (int i = 0; i < max_nb_pid; i++) {
     if ((&scheduler[i])->etat == MORT) {
@@ -67,19 +79,18 @@ int64_t cree_processus(int code(), char *nom) {
   // snprintf et pas strncpy pour garantir le caractère de terminaison '\0'
   snprintf(p->nom, MAX_CHAR_NAME, "%s", nom);
 
-  // pour le saut lors du premier context switch (p->contexte[0] == ra)
-  p->contexte[0] = (uint64_t)proc_launcher;
+  // Lors du premier ctx_sw, le ret nous emmène dans init_proc_launcher qui
+  // appelle proc_launcher en mettant a0 à s0 (=code)
+  p->contexte[0] = (uint64_t)addr_init_proc_launcher; // ra
+  p->contexte[4] = (uint64_t)code;                    // s0
 
-  // On stocke l'adresse du processus et satp sur la pile (p->contexte[1] == sp)
-  p->contexte[1] = (uint64_t)(p->pile + (PROCESS_STACK_SIZE - 2));
+  p->contexte[1] = (uint64_t)(p->pile + PROCESS_STACK_SIZE); // pile kernel
 
-  p->pile[PROCESS_STACK_SIZE - 2] = (uint64_t)code;
+  // Au premier ctx_sw, on reste en mode S car on doit apeler proc_launcher.
+  p->contexte[17] = SSTATUS_SPP | SSTATUS_SPIE; // mode S et IRQ enabled
+
   uint64_t satp = init_vm(p->pid); // on utilise le PID pour l'ASID (unicité)
-  p->satp = satp;
-  p->pile[PROCESS_STACK_SIZE - 1] = satp;
-  // On bascule l'adressage lors du context switch
-  // NOTE: p->contexte et p->pile ne sont remplis que partiellement lors de la
-  // création du processus. Ils seront complétés par ctx_sw.
+  p->contexte[18] = satp; // On basculera l'adressage lors du context switch
 
   return p->pid;
 }
@@ -182,16 +193,62 @@ void affiche_etats() {
   }
 }
 
+// Charge le processus proc (=adresse DANS LE KERNEL du code -> adresse physique
+// car mapping 1:1), de taille proc_size, dans une zone mémoire accessible au
+// mode U: USER_START_ADDR == 0x40000000
+static void load_process(int proc(), size_t proc_size) {
+  uint64_t satp = actif->contexte[18];
+  pagetable_t root = SATP2PT(satp);
+
+  // On copie le code du processus dans une zone mémoire accessible au mode
+  // user. Puis on la mappe avec l'adresse virtuelle 0x40000000.
+  // NOTE: Le code du processus est présent à 2 endroits (kernel et zone user)
+  for (size_t offset = 0; offset < proc_size; offset += PAGESIZE) {
+    void *pa = get_frame();
+    memcpy((void *)pa, (void *)((uintptr_t)proc + offset), PAGESIZE);
+    map_page(root, USER_START_ADDR + offset, (uintptr_t)pa, PTE_RWXV | PTE_U);
+  }
+
+  // La pile user n'est pas fiable pour le mode S, donc on utilise une pile
+  // différente (pour l'ordonnacement, interruptions, etc). Le sp de la pile
+  // kernel est dans sscratch et p->pile. On choisit 0x50000000 comme adresse
+  // virtuelle de la pile user -> on ne peut pas y accèder en mode S/M.
+  void *pa_stack = get_frame();
+  map_page(root, USER_STACK_ADDRESS - PAGESIZE, (uintptr_t)pa_stack,
+           PTE_RWXV | PTE_U);
+}
+
 // Lance le processus en argument et s'assure de la terminaison de celui-ci.
+// C'est cette fonction qui fait le passage au mode U pour lancer le processus.
 void proc_launcher(int proc()) {
   // Les nouveaux processus commencent avec les interruptions timer autorisées.
   // Ça fixe le bug de non-actualisation de l'horloge quand un processus est
   // lancé par un processus ayant les interruptions désactivées e.g. bash
   s_enable_it();
 
-  proc();
+  load_process(proc, PAGESIZE); // taille max du processus = 4KB
+
+  // On passe en mode user
+  __asm__("csrc sstatus, %0" ::"r"(SSTATUS_SPP));  // mode user
+  __asm__("csrs sstatus, %0" ::"r"(SSTATUS_SPIE)); // IRQ enabled
+
+  // BUG: Pour l'instant, les code des processus utilisent des adresses absolues
+  // du kernel. Les jumps à ces adresses en mode user provoquent des page
+  // faults, ce qui fait crash le processus.
+  // FIX: il faut transformer les processus en Position Independant Code (PIC).
+  __asm__("csrw sepc, %0" ::"r"(USER_START_ADDR));
+
+  // On sauvegarde le sp kernel dans sscratch
+  uintptr_t kstack_top = (uintptr_t)actif->pile + PROCESS_STACK_SIZE;
+  __asm__("csrw sscratch, %0" ::"r"(kstack_top));
+
+  __asm__("mv sp, %0" ::"r"(USER_STACK_ADDRESS)); // on charge la pile user
+
+  // On lance le processus
+  __asm__("sret");
 
   // NOTE: idle ne termine jamais donc il n'atteint jamais cette ligne
+  // BUG: Pour tous les processus, on attient jamais cette ligne en fait...
   fin_processus();
 }
 

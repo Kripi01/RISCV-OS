@@ -38,7 +38,8 @@ static void devices_mapping(pagetable_t root) {
   map_page(root, BOCHS_CONFIG_BASE_ADDRESS, BOCHS_CONFIG_BASE_ADDRESS, PTE_RWV);
   map_page(root, PCI_ECAM_BASE_ADDRESS, PCI_ECAM_BASE_ADDRESS, PTE_RWV);
   map_page(root, CLINT_MSIP, CLINT_MSIP, PTE_RWV);
-  map_page(root, UART_BASE, UART_BASE, PTE_RWV);
+  // Temporaire (pour le debug): UART accessible au mode U (et S grâce au SUM)
+  map_page(root, UART_BASE, UART_BASE, PTE_RWV | PTE_U);
 
   // NOTE: On mappe toutes les adresses du PLIC mais en pratique seul le
   // premier hart et les 2 contextes sont utilisés
@@ -76,24 +77,6 @@ uint64_t init_vm(uint64_t asid) {
 
   devices_mapping(root);
   identity_mapping(root);
-  return satp;
-}
-
-uint64_t init_vm_process(uint64_t asid) {
-  pagetable_t root = (pagetable_t)get_frame(); // root est aligné sur 4KB
-  uint64_t root_ppn = GET_PPN(PA2PTE(root));
-
-  // Les autres schemes (Bare, Sv48 et Sv57) ne sont pas pris en charge
-  uint64_t sv39 = 8ULL << 60;
-  uint64_t satp = sv39 | (asid << 44) | root_ppn;
-
-  // On mappe l'adresse 0 vers une page n'ayant pas le flag valid, pour que
-  // *NULL provoque une page fault
-  map_page(root, 0, 0, 0);
-
-  devices_mapping(root);
-  identity_mapping(root);
-
   return satp;
 }
 
