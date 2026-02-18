@@ -2,6 +2,8 @@
 // TODO: repositionner les fonctions (refactor)
 // FIX: fin_processus
 // BUG: Interruptions UART en mode U
+// TODO: Ajouter un champ priorité aux processus pour améliorer la politique
+// d'ordonnacement (exemple: idle a une prorité de 0 et bash une priorité de 5)
 
 #include "process.h"
 #include "cpu.h"

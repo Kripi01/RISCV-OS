@@ -39,7 +39,7 @@ static void devices_mapping(pagetable_t root) {
   map_page(root, PCI_ECAM_BASE_ADDRESS, PCI_ECAM_BASE_ADDRESS, PTE_RWV);
   map_page(root, CLINT_MSIP, CLINT_MSIP, PTE_RWV);
   // Temporaire (pour le debug): UART accessible au mode U (et S grâce au SUM)
-  map_page(root, UART_BASE, UART_BASE, PTE_RWV | PTE_U);
+  map_page(root, UART_BASE, UART_BASE, PTE_RWV);
 
   // NOTE: On mappe toutes les adresses du PLIC mais en pratique seul le
   // premier hart et les 2 contextes sont utilisés

@@ -163,6 +163,11 @@ void m_trap_handler(uint64_t mcause, uint64_t mie, uint64_t mip) {
 
       return_ecall();
     }
+    if (EXC_IS_PF(mcause)) {
+      printf("Segmentation fault (core not dumped)\n");
+
+      fin_processus(); // Une segfault kill le processus actif
+    }
   }
 }
 

@@ -55,18 +55,9 @@ void idle() {
 }
 
 // Ce processus de test n'a aucune adresses absolues (dans la zone mémoire du
-// kernel), donc on peut le déplacer en mémoire sans problème -> PIC = Position
-// Independent Code
+// kernel), donc on peut le déplacer en mémoire sans problème -> PIC
 int user_process_test() {
-  volatile char *uart = (volatile char *)UART_BASE;
-
-  // Chaîne construite sur la pile (stack) -> OK car la pile est mappée en User
-  char msg[] = {'H', 'e', 'l', 'l', 'o', ' ', 'U', 's', 'e', 'r', '\n', 0};
-
   while (1) {
-    for (int i = 0; msg[i] != 0; i++) {
-      *uart = msg[i]; // Écriture directe (nécessite UART mappé en PTE_U)
-    }
   }
   return 0;
 }
