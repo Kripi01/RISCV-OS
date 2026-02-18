@@ -1,13 +1,16 @@
-# DOCS: The RISC-V Instruction Set Manual: Volume II: Privileged Architecture. 12.1.6. Supervisor Scratch (sscratch) Register
+# DOCS: The RISC-V Instruction Set Manual: Volume II: Privileged Architecture. 12.1.6.
+#       Supervisor Scratch (sscratch) Register
 
 # Traitant d'interruption superivseur (stvec), donc exécuté en mode S.
     .globl mon_traitant
     .text
 mon_traitant:
-  # On passe à la pile kernel SSI on était en mode user (sinon, en mode S, on est déjà en pile kernel)
+  # On passe à la pile kernel SSI on était en mode user (sinon, en mode S, on est déjà
+  # en pile kernel)
 
   # Si interruption en mode U: on swap sp (user) avec sscratch (kernel)
-  # Si interruption en mode S: sscratch vaut 0, sp reste inchangé (c'est déjà le stack pointer du kernel)
+  # Si interruption en mode S: sscratch vaut 0, sp reste inchangé (c'est déjà le stack
+  # pointer du kernel)
   csrrw sp, sscratch, sp
   bnez sp, sauvegarde_contexte
 
@@ -17,7 +20,7 @@ mon_traitant:
   # On ne change pas satp, donc l'interruption est traîtée avec la page table du mode U
   # mais en mode S. Ce n'est pas un problème car les adresses du kernel sont mappées en
   # 1:1 dans la page table du mode U. De plus, le mode S ne peut pas accèder aux
-  # adresses user car elles ont le bit U et le SUM est désactivé (TODO:)
+  # adresses user car elles ont le bit U et le SUM est désactivé
 sauvegarde_contexte:
   addi sp, sp, -136
   sd ra, 0(sp)
@@ -45,6 +48,10 @@ mon_traitant_fin_prologue:
   csrr a0, scause
   csrr a1, sie
   csrr a2, sip
+  # on veut pouvoir modifier le a0 stocké en pile lors d'un syscall du mode U pour
+  # récupérer la valeur de retour de la fonction kernel appelée. On utilise également
+  # le sp pour accèder aux arguments du syscall
+  mv a3, sp
   jal s_trap_handler
 
 mon_traitant_debut_epilogue:
@@ -64,7 +71,8 @@ mon_traitant_debut_epilogue:
   ld a6, 112(sp)
   ld a7, 120(sp)
 
-  ld t0, 128(sp) # On récupère le sp user du proc B qui a été stocké sur la pile kernel du proc B (=sp suite au ctx_sw)
+  ld t0, 128(sp) # On récupère le sp user du proc B qui a été stocké sur la pile kernel
+                 # du proc B (=sp suite au ctx_sw)
   beqz t0, retour_vers_kernel # Si le sp user est 0 alors le proc B était en mode S
 
 retour_vers_user:
@@ -73,7 +81,7 @@ retour_vers_user:
   addi sp, sp, 136 # On libère la pile KERNEL du proc B
   csrrw sp, sscratch, sp # On passe au sp user du proc B
   sret # sret repasse au mode user (sstatus.SPP), le satp est celui du mode U, donc on
-       # peut de nouveau accèder aux adresses virtuelles (sepc, ra et sp du mode U:)
+       # peut de nouveau accèder aux adresses virtuelles (sepc, ra et sp du mode U)
 
 
 retour_vers_kernel:
@@ -82,4 +90,5 @@ retour_vers_kernel:
   addi sp, sp, 136
   sret
 
-# NOTE: s'il n'y a pas de changement de contexte durant l'interruption e.g. interruption UART alors A == B et ça marche quand même.
+# NOTE: s'il n'y a pas de changement de contexte durant l'interruption e.g.
+# interruption UART alors A == B et ça marche quand même.

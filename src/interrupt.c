@@ -63,7 +63,9 @@ static void disable_sum() {
 
 // Gère les interruptions du mode S. Fait un syscall pour ack l'IRQ
 // du CLINT
-void s_trap_handler(uint64_t scause, uint64_t sie, uint64_t sip) {
+// TODO: faire 2 fonctions pour le traitement des IRQ et des exceptions.
+void s_trap_handler(uint64_t scause, uint64_t sie, uint64_t sip,
+                    trap_ctxt_t *tc) {
   int64_t is_interrupt = (int64_t)scause < 0; // MSB à 1 ?
   if (is_interrupt) {
     if ((sie & sip) == 0) { // IRQ masquée (les exceptions ne lèvent pas sip)
@@ -121,18 +123,15 @@ void s_trap_handler(uint64_t scause, uint64_t sie, uint64_t sip) {
 
       fin_processus(); // Une segfault kill le processus actif
     } else if (scause == EXC_S_ENV_CALL_FROM_U) { // syscall
-      uint64_t code;
-      __asm__("mv %0, a7" : "=r"(code));
+      uint64_t code = tc->a7;
       switch (code) {
       case UPUTC: {
-        char c;
-        __asm__("mv %0, a6" : "=r"(c));
-        printf("%c", c);
+        char c = tc->a0;
+        printf("%c", (char)c);
         break;
       }
       case UPUTS: {
-        uint64_t str;
-        __asm__("mv %0, a6" : "=r"(str));
+        uint64_t str = tc->a0;
 
         // Lors du traitement d'une interruption/exception, le mode S utilise la
         // page table du mode U. Cependant, il ne peut pas accèder aux données
@@ -141,7 +140,18 @@ void s_trap_handler(uint64_t scause, uint64_t sie, uint64_t sip) {
         enable_sum();
         printf("%s", (char *)str);
         disable_sum();
+        break;
+      }
+      case UCREE_PROCESSUS: {
+        uint64_t proc_code = tc->a0;
+        uint64_t proc_nom = tc->a1;
 
+        // proc_code est une adresse virtuelle, donc on active le bit SUM
+        enable_sum();
+        uint64_t pid = cree_processus((int (*)())proc_code, (char *)proc_nom);
+        disable_sum();
+
+        tc->a0 = pid; // on retourne pid
         break;
       }
       default:

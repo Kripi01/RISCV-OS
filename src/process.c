@@ -1,7 +1,6 @@
 // TODO: Free les PTE à la mort d'un processus!!!! (grosse memory leak!!!)
 // TODO: repositionner les fonctions (refactor)
 // FIX: fin_processus
-// BUG: Interruptions UART en mode U
 // TODO: Ajouter un champ priorité aux processus pour améliorer la politique
 // d'ordonnacement (exemple: idle a une prorité de 0 et bash une priorité de 5)
 
@@ -198,6 +197,8 @@ void affiche_etats() {
 // Charge le processus proc (=adresse DANS LE KERNEL du code -> adresse physique
 // car mapping 1:1), de taille proc_size, dans une zone mémoire accessible au
 // mode U: USER_START_ADDR == 0x40000000
+// BUG: Si le processus a été créé via ucree_processus alors proc est une
+// adresse virtuelle
 static void load_process(int proc(), size_t proc_size) {
   uint64_t satp = actif->contexte[18];
   pagetable_t root = SATP2PT(satp);

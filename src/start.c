@@ -55,12 +55,30 @@ void idle() {
   }
 }
 
+// BUG: le code des fonctions apelées dans un processus doit se situer après le
+// code du processus car dans load_process on copie le code du processus à
+// partir de 0x40000000, donc les offsets négatifs résultent en des adresses
+// virtuelles du genre 0x3FFFFFE0, ce qui provoque un segfault
+// FIX: (??) Modifier le linker script et charger TOUTE la zone user à chaque
+// chargement de processus ?
+int user_process_test2();
+
 // Ce processus de test n'a aucune adresses absolues (dans la zone mémoire du
 // kernel), donc on peut le déplacer en mémoire sans problème -> PIC
 int user_process_test() {
+  uint64_t pid = ucree_processus(user_process_test2, "test2");
+  uputc((char)pid + '0');
+  uputc('\n');
   while (1) {
     uputs("coucou tout le monde");
     uputc('\n');
+  }
+  return 0;
+}
+
+int user_process_test2() {
+  while (1) {
+    uputs("test!\n");
   }
   return 0;
 }
