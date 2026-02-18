@@ -39,8 +39,8 @@ enter_smode:
     # On délègue également les exceptions pour pouvoir gérer les page faults en mode S
     # Docs: medeleg has a bit position allocated for every synchronous exception with
     # the index of the bit position equal to the value returned in the mcause register
-    # TODO: déléguer les ecall pour les syscalls
-    li t0, 0xb000 # 12, 13, 15
+    # On délègue les exceptions de page faults (12, 13, 15) et de ecall du mode U (8)
+    li t0, 0xb100
     csrw medeleg, t0
 
     # On laisse la gestion des exceptions au mode M (notamment pour update le timer qui

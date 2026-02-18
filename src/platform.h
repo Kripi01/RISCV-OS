@@ -120,6 +120,8 @@
 #define IRQ_S_SFT 1
 #define IRQ_S_TMR 5
 #define IRQ_S_EXT 9
+#define EXC_S_ENV_CALL_FROM_U 8
+#define EXC_S_ENV_CALL_FROM_S 9
 // Page faults
 #define EXC_INSTRUCTION_PF 12
 #define EXC_LOAD_PF 13

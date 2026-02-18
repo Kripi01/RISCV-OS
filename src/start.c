@@ -10,6 +10,7 @@
 #include "process.h"
 #include "screen.h"
 #include "shell.h"
+#include "syscalls.h"
 #include "uart.h"
 #include <stdint.h>
 
@@ -58,6 +59,7 @@ void idle() {
 // kernel), donc on peut le déplacer en mémoire sans problème -> PIC
 int user_process_test() {
   while (1) {
+    uputc('c');
   }
   return 0;
 }

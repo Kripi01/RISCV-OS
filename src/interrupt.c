@@ -100,6 +100,14 @@ void s_trap_handler(uint64_t scause, uint64_t sie, uint64_t sip) {
       printf("Segmentation fault (core not dumped)\n");
 
       fin_processus(); // Une segfault kill le processus actif
+    } else if (scause == EXC_S_ENV_CALL_FROM_U) { // syscall
+      uint64_t code;
+      __asm__("mv %0, a7" : "=r"(code));
+      if (code == 0) { // TODO: macro
+        char c;
+        __asm__("mv %0, a6" : "=r"(c));
+        printf("%c", c);
+      }
     }
   }
 }
@@ -163,11 +171,7 @@ void m_trap_handler(uint64_t mcause, uint64_t mie, uint64_t mip) {
 
       return_ecall();
     }
-    if (EXC_IS_PF(mcause)) {
-      printf("Segmentation fault (core not dumped)\n");
-
-      fin_processus(); // Une segfault kill le processus actif
-    }
+    // Les page faults ont été délguées au mode S (cf enter_smode.S)
   }
 }
 
