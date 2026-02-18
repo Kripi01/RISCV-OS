@@ -1,4 +1,5 @@
 #include "syscalls.h"
+#include "platform.h"
 #include <stdint.h>
 
 static void syscall(uint64_t code, uint64_t a6) {
@@ -9,8 +10,6 @@ static void syscall(uint64_t code, uint64_t a6) {
   __asm__("ecall");
 }
 
-void uputc(char c) {
-  // BUG: si on fait un uputs avec un char * en arugment alors l'adresse est
-  // virtuelle, donc segfault pour le mode S
-  syscall(0, (uint64_t)c);
-}
+void uputc(char c) { syscall(UPUTC, (uint64_t)c); }
+
+void uputs(char *str) { syscall(UPUTS, (uint64_t)str); }

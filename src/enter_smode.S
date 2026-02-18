@@ -48,10 +48,10 @@ enter_smode:
     la t0, mon_traitant_m
     csrw mtvec, t0
 
-    # on active le bit mstatus.SUM pour que le kernel puisse modifier la mémoire
-    # des processus
-    li t0, 0x40000
-    csrs mstatus, t0
+    # # on active le bit mstatus.SUM pour que le kernel puisse modifier la mémoire
+    # # des processus
+    # li t0, 0x40000
+    # csrs mstatus, t0
 
     # on active le bit sstatus.SPIE pour que après le mret, le bit mstatus.SIE soit à 1
     li t0, 0x20

@@ -59,9 +59,8 @@ void idle() {
 // kernel), donc on peut le déplacer en mémoire sans problème -> PIC
 int user_process_test() {
   while (1) {
-    uputc('c');
-    uputc('o');
-    uputc('u');
+    uputs("coucou tout le monde");
+    uputc('\n');
   }
   return 0;
 }

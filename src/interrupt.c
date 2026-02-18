@@ -51,6 +51,16 @@ static void return_ecall_s() {
   __asm__("csrw sepc, %0" ::"r"(sepc));
 }
 
+static void enable_sum() {
+  __asm__("li t0, 0x40000\n"
+          "csrs sstatus, t0");
+}
+
+static void disable_sum() {
+  __asm__("li t0, 0x40000\n"
+          "csrc sstatus, t0");
+}
+
 // Gère les interruptions du mode S. Fait un syscall pour ack l'IRQ
 // du CLINT
 void s_trap_handler(uint64_t scause, uint64_t sie, uint64_t sip) {
@@ -113,10 +123,29 @@ void s_trap_handler(uint64_t scause, uint64_t sie, uint64_t sip) {
     } else if (scause == EXC_S_ENV_CALL_FROM_U) { // syscall
       uint64_t code;
       __asm__("mv %0, a7" : "=r"(code));
-      if (code == 0) { // TODO: macro
+      switch (code) {
+      case UPUTC: {
         char c;
         __asm__("mv %0, a6" : "=r"(c));
         printf("%c", c);
+        break;
+      }
+      case UPUTS: {
+        uint64_t str;
+        __asm__("mv %0, a6" : "=r"(str));
+
+        // Lors du traitement d'une interruption/exception, le mode S utilise la
+        // page table du mode U. Cependant, il ne peut pas accèder aux données
+        // user à cause de PTE_U. Pour le uputs, on active temporairement le bit
+        // SUM pour lire correctement l'adresse vrituelle du str et l'afficher.
+        enable_sum();
+        printf("%s", (char *)str);
+        disable_sum();
+
+        break;
+      }
+      default:
+        break;
       }
 
       return_ecall_s();

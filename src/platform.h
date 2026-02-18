@@ -146,6 +146,10 @@
 #define SEIP (1 << 9)
 #define MEIP (1 << 11)
 
+// Syscall codes
+#define UPUTC 0
+#define UPUTS 1
+
 // UART
 #define UART_BASE 0x10000000
 #define UART_CLOCK_FREQ 1843200
