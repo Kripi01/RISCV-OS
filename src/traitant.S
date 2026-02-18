@@ -14,6 +14,10 @@ mon_traitant:
   # On venait du mode S, donc on restaure le sp original
   csrrw sp, sscratch, sp
 
+  # On ne change pas satp, donc l'interruption est traîtée avec la page table du mode U
+  # mais en mode S. Ce n'est pas un problème car les adresses du kernel sont mappées en
+  # 1:1 dans la page table du mode U. De plus, le mode S ne peut pas accèder aux
+  # adresses user car elles ont le bit U et le SUM est désactivé (TODO:)
 sauvegarde_contexte:
   addi sp, sp, -136
   sd ra, 0(sp)
@@ -68,7 +72,8 @@ retour_vers_user:
   ld t0, 8(sp) # on restaure enfin le vrai t0
   addi sp, sp, 136 # On libère la pile KERNEL du proc B
   csrrw sp, sscratch, sp # On passe au sp user du proc B
-  sret
+  sret # sret repasse au mode user (sstatus.SPP), le satp est celui du mode U, donc on
+       # peut de nouveau accèder aux adresses virtuelles (sepc, ra et sp du mode U:)
 
 
 retour_vers_kernel:

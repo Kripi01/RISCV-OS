@@ -60,6 +60,8 @@ void idle() {
 int user_process_test() {
   while (1) {
     uputc('c');
+    uputc('o');
+    uputc('u');
   }
   return 0;
 }

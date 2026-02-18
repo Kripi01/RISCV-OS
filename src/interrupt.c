@@ -41,15 +41,25 @@ static void update_time() {
   display_top_right(time_str, 10);
 }
 
+// Modifie sepc pour pouvoir revenir à l'instruction suivant le ecall.
+static void return_ecall_s() {
+  // sepc stocke le pc de ecall, donc il faut l'incrémenter de la taille d'une
+  // instruction = 32 bits
+  uint64_t sepc;
+  __asm__("csrr %0, sepc" : "=r"(sepc));
+  sepc += 4;
+  __asm__("csrw sepc, %0" ::"r"(sepc));
+}
+
 // Gère les interruptions du mode S. Fait un syscall pour ack l'IRQ
 // du CLINT
 void s_trap_handler(uint64_t scause, uint64_t sie, uint64_t sip) {
-  if ((sie & sip) == 0) { // Interruption masquée
-    return;
-  }
-
   int64_t is_interrupt = (int64_t)scause < 0; // MSB à 1 ?
   if (is_interrupt) {
+    if ((sie & sip) == 0) { // IRQ masquée (les exceptions ne lèvent pas sip)
+      return;
+    }
+
     uint64_t masked_scause = scause & 0x7FFFFFFFFFFFFFFF;
     switch (masked_scause) {
     case IRQ_S_SFT: {
@@ -108,12 +118,14 @@ void s_trap_handler(uint64_t scause, uint64_t sie, uint64_t sip) {
         __asm__("mv %0, a6" : "=r"(c));
         printf("%c", c);
       }
+
+      return_ecall_s();
     }
   }
 }
 
 // Modifie mepc pour pouvoir revenir à l'instruction suivant le ecall.
-static void return_ecall() {
+static void return_ecall_m() {
   // mepc stocke le pc de ecall, donc il faut l'incrémenter de la taille d'une
   // instruction = 32 bits
   uint64_t mepc;
@@ -169,7 +181,7 @@ void m_trap_handler(uint64_t mcause, uint64_t mie, uint64_t mip) {
       // On réautorise les interruptions machines timer (mie.MTIE)
       __asm__("csrs mie, %0" ::"r"(MTIE));
 
-      return_ecall();
+      return_ecall_m();
     }
     // Les page faults ont été délguées au mode S (cf enter_smode.S)
   }
