@@ -4,9 +4,11 @@
 // TODO: repositionner les fonctions (refactor)
 // TODO: Ajouter un champ priorité aux processus pour améliorer la politique
 // d'ordonnacement (exemple: idle a une prorité de 0 et bash une priorité de 5)
+// TODO: Simplifier les commentaires
+// TODO: renommer les fonctions s'exécutant en mode S en sys_.... et celles
+// s'exécutant en mode U en u...
 
 #include "process.h"
-#include "cpu.h"
 #include "interrupt.h"
 #include "platform.h"
 #include "pm.h"
@@ -38,7 +40,7 @@ void init_proc() {
   __asm__("csrw sscratch, zero");
 
   p->contexte[16] = (uint64_t)idle;             // sepc
-  p->contexte[17] = SSTATUS_SPP | SSTATUS_SPIE; // mode S et IRQ enabled
+  p->contexte[17] = SSTATUS_SPP | SSTATUS_SPIE; // mode S et IRQ à autoriser
 
   uint64_t satp = init_vm(p->pid); // on initialise la mémoire virtuelle (satp)
   p->contexte[18] = satp;
@@ -122,15 +124,14 @@ int64_t cree_processus(int code(), char *nom) {
   // snprintf et pas strncpy pour garantir le caractère de terminaison '\0'
   snprintf(p->nom, MAX_CHAR_NAME, "%s", nom);
 
-  // Lors du premier ctx_sw, le ret nous emmène dans init_proc_launcher qui
-  // appelle proc_launcher en mettant a0 à s0 (=code)
+  // Lors du premier ctx_sw, le ret nous emmène dans proc_launcher
   p->contexte[0] = (uint64_t)proc_launcher; // ra
   p->contexte[4] = (uint64_t)code;          // s0
 
   p->contexte[1] = (uint64_t)(p->pile + PROCESS_STACK_SIZE); // pile kernel
 
   // Au premier ctx_sw, on reste en mode S car on doit apeler proc_launcher.
-  p->contexte[17] = SSTATUS_SPP | SSTATUS_SPIE; // mode S et IRQ enabled
+  p->contexte[17] = SSTATUS_SPP | SSTATUS_SPIE; // mode S et IRQ à autoriser
 
   uint64_t satp = init_vm(p->pid); // on utilise le PID pour l'ASID (unicité)
   p->contexte[18] = satp; // On basculera l'adressage lors du context switch
@@ -244,31 +245,26 @@ void affiche_etats() {
 // WARNING: proc_launcher doit être appelé avec le satp du processus fils (le
 // changement de satp est fait dans ctx_sw)
 void proc_launcher() {
-  // Les nouveaux processus commencent avec les interruptions timer autorisées.
-  // Ça fixe le bug de non-actualisation de l'horloge quand un processus est
-  // lancé par un processus ayant les interruptions désactivées e.g. bash
-  s_enable_it();
-
   // On passe en mode user
-  // TODO: faire cela dans cree_processus
   __asm__("csrc sstatus, %0" ::"r"(SSTATUS_SPP));  // mode user
-  __asm__("csrs sstatus, %0" ::"r"(SSTATUS_SPIE)); // IRQ enabled
-
-  __asm__("csrw sepc, %0" ::"r"(actif->contexte[16]));
+  __asm__("csrs sstatus, %0" ::"r"(SSTATUS_SPIE)); // IRQ seront autorisées
 
   // On sauvegarde le sp kernel dans sscratch
   uintptr_t kstack_top = (uintptr_t)actif->pile + PROCESS_STACK_SIZE;
   __asm__("csrw sscratch, %0" ::"r"(kstack_top));
-
   __asm__("mv sp, %0" ::"r"(USER_STACK_ADDRESS)); // on charge la pile user
 
-  // On lance le processus
+  // On lance le processus (actif->contexte contient l'adresse du processus)
+  __asm__("csrw sepc, %0" ::"r"(actif->contexte[16]));
+  // au moment du sret, sstatus.SPIE est recopié dans sstatus.SIE et les
+  // interruptions seront autorisées -> l'horloge continuera à s'actualiser
   __asm__("sret");
-  // WARNING: Pour terminer correctement le processus, il faut faire le syscall
-  // UEXIT (qui appelle fin_processus) à la fin de ce dernier.
+  // NOTE: Pour terminer correctement le processus, il faut faire le syscall
+  // UEXIT (qui appelle fin_processus) à la fin.
 }
 
 // Commande ps: affiche les processus actifs sous la forme d'un tableau.
+// WARNING: Doit être exécuté en mode S.
 int ps() {
   printf("+-----------------+-------+------------+\n");
   printf("| Nom             | PID   | Etat       |\n");

@@ -2,94 +2,103 @@
 #include "cpu.h"
 #include "process.h"
 #include "string.h"
-#include "tests.h"
-#include <stddef.h>
-#include <stdio.h>
-#include <string.h>
+#include "syscalls.h"
 
-extern int ps();
+// TODO: réduire les commentaires
+
+extern int ups();
 extern int help();
 extern int f_true();
 extern int f_false();
-extern int proc1();
-extern int proc2();
-extern int proc3();
+// TODO:
+// extern int proc1();
+// extern int proc2();
+// extern int proc3();
 extern int history();
 extern int fg();
 extern int clear();
-extern int buddy_heap_test();
-extern int buddy_heap_overflow_test();
-extern int segfault_test();
-extern int double_mapping_test();
+// extern int buddy_heap_test();
+// extern int buddy_heap_overflow_test();
+// extern int segfault_test();
+// extern int double_mapping_test();
 
 command_t commands[] = {
     {.nom = "help", .fonction = help},
-    {.nom = "ps", .fonction = ps},
+    {.nom = "ps", .fonction = ups},
     {.nom = "history", .fonction = history},
     {.nom = "true", .fonction = f_true},
     {.nom = "false", .fonction = f_false},
-    {.nom = "proc1", .fonction = proc1},
-    {.nom = "proc2", .fonction = proc2},
-    {.nom = "proc3", .fonction = proc3},
+    // {.nom = "proc1", .fonction = proc1},
+    // {.nom = "proc2", .fonction = proc2},
+    // {.nom = "proc3", .fonction = proc3},
     {.nom = "bash", .fonction = bash},
     {.nom = "fg", .fonction = fg},
     {.nom = "clear", .fonction = clear},
-    {.nom = "buddy_heap_test", .fonction = buddy_heap_test},
-    {.nom = "buddy_heap_overflow_test", .fonction = buddy_heap_overflow_test},
-    {.nom = "segfault_test", .fonction = segfault_test},
-    {.nom = "double_mapping_test", .fonction = double_mapping_test},
+    // {.nom = "buddy_heap_test", .fonction = buddy_heap_test},
+    // {.nom = "buddy_heap_overflow_test", .fonction =
+    // buddy_heap_overflow_test},
+    // {.nom = "segfault_test", .fonction = segfault_test},
+    // {.nom = "double_mapping_test", .fonction = double_mapping_test},
 };
 
 #define NB_COMMANDS (int)(sizeof(commands) / sizeof(command_t))
 
 volatile int last_index_cmd = 0;
 
-char c[MAX_LENGTH_COMMANDS];
 volatile char command_str[MAX_LENGTH_COMMANDS];
 
 // Renvoie la commande tapée par l'utilisateur (une commande termine par un
 // '\n') en remplaçant le '\n' à la fin par un '\0' pour les strcmp ensuite,
-// puis vide le buffer commands.
-static char *get_command() {
-  while (command_str[last_index_cmd] != '\n') {
-    s_enable_it();
-    hlt();
-    s_disable_it();
+// puis vide le cmd_str_buf.
+// cmd_str_buf est l'adresse virtuelle (dans la zone user de bash) du buffer
+// pour les noms des commandes tapées.
+// WARNING: Cette fonction doit être exécutée en mode S (car command_str est une
+// adresse kernel car modifié dans keyboard.c)
+char *get_command(char cmd_str_buf[MAX_LENGTH_COMMANDS]) {
+  // Pas d'overflow car last_index_cmd < MAX_LENGTH_COMMANDS (keyboard.c)
+  if (command_str[last_index_cmd] != '\n') {
+    return NULL;
   }
 
   // On remplace le '\n' à  la fin par un '\0'
-  strncpy(c, (char *)command_str, last_index_cmd);
-  c[last_index_cmd] = '\0';
+  enable_sum(); // on accède à une adresse virtuelle de bash -> bit SUM
+  strncpy(cmd_str_buf, (char *)command_str, last_index_cmd);
+  cmd_str_buf[last_index_cmd] = '\0';
+  disable_sum();
 
   // Puis on vide la liste des commandes.
   command_str[last_index_cmd] = '\0'; // Il faut enlever le '\n' à la fin
   last_index_cmd = 0;
 
-  return c;
+  return (char *)cmd_str_buf;
 }
 
 // Éxecute la commande cible (avec filiation ou non).
 // Renvoie 1 si la commande tapée par l'utilisateur correspond à la commande
 // cible (éventuellement avec ' &' à la fin) et 0 sinon.
-// TODO: gérer le cas où pid == -1
-static int exec_command(char *command, char *target_command,
-                        int target_function()) {
-  size_t len_target = strlen(target_command);
+// WARNING: Pour éviter d'avoir à recopier le code de chaque processus en
+// mémoire user (de bash), cette fonction doit être exécutée en mode S (cf. le
+// syscall UEXEC_COMMAND)
+int exec_command(char *cmd_str, char *target_cmd_str, int target_fct()) {
+  size_t len_target = strlen(target_cmd_str);
 
   // On vérifie si la commande commence par le bon nom.
-  if (strncmp(command, target_command, len_target) == 0) {
+  if (strncmp(cmd_str, target_cmd_str, len_target) == 0) {
     // Si la commande est en avant-plan (pas de ' &')
-    if (command[len_target] == '\0') {
-      int pid = cree_processus(target_function, target_command);
+    if (cmd_str[len_target] == '\0') {
+      int pid = cree_processus(target_fct, target_cmd_str);
+      if (pid <= 0) {
+        return 0;
+      }
       waitpid(pid); // On attend que le processus fils soit mort.
       return 1;
     }
 
     // Si la commande est en arrière-plan (il y a un ' &')
-    if (strcmp(command + len_target, " &") == 0) {
+    if (strcmp(cmd_str + len_target, " &") == 0) {
       // TODO: faire des jobs (fonctionnalité du shell != kernel)
       // et gérer le cas particulier de bash en arrière-plan.
-      cree_processus(target_function, target_command);
+      cree_processus(target_fct, target_cmd_str);
       return 1;
     }
   }
@@ -99,6 +108,9 @@ static int exec_command(char *command, char *target_command,
 
 // Invite de commande.
 int bash() {
+  // on alloue le buffer des commandes sur la pile de bash -> adresse virtuelle
+  char cmd_str_buf[MAX_LENGTH_COMMANDS];
+
   for (;;) {
     // NOTE: Fonctionne en filiation, mais pas en fond de tâche (mais c'est
     // normal).
@@ -106,8 +118,14 @@ int bash() {
     // n'a pas la main très souvent, il partage trop avec idle. Il faut changer
     // la politique d'ordonnancement, pour donner plus de temps à bash et moins
     // à idle ??
-    printf("$ ");
-    char *cur_command = get_command();
+    UPUTS("$ ");
+    char *cur_command = NULL;
+    while ((cur_command = UGET_COMMAND(cmd_str_buf)) == NULL) {
+      // TODO: ajouter un état EN_ATTENTE_IO pour éviter l'attente active (on
+      // endort(-io) bash jusqu'à ce que get_command ne renvoie pas NULL -> on
+      // réveille bash dans keyboard.c, à l'interruption clavier)
+      __asm__ volatile("nop"); // attente active (pas ouf)
+    }
 
     // Si l'utilisateur tape simplement entrée, on ne l'interprète pas
     if (strcmp(cur_command, "\0") == 0) {
@@ -121,16 +139,16 @@ int bash() {
     int found = 0;
     for (int i = 0; i < NB_COMMANDS; i++) {
       command_t *command = &commands[i];
-      if (exec_command(cur_command, command->nom, command->fonction)) {
+      if (UEXEC_COMMAND(cur_command, command->nom, command->fonction)) {
         found = 1;
         break;
       }
     }
 
     if (!found) {
-      printf("Commande introuvable.\n");
+      UPUTS("Commande introuvable.\n");
     }
   }
 
-  return 0;
+  UEXIT(0);
 }

@@ -153,11 +153,12 @@
 // 1X pour les syscalls processus
 #define CODE_UCREE_PROCESSUS 10
 #define CODE_UWAITPID 11
-#define CODE_EXIT 12
+#define CODE_UEXIT 12
+#define CODE_UPS 13
 
 // 2X pour les syscalls bash
-#define CODE_GET_COMMAND 20
-#define CODE_EXEC_COMMAND 21
+#define CODE_UGET_COMMAND 20
+#define CODE_UEXEC_COMMAND 21
 
 // UART
 #define UART_BASE 0x10000000

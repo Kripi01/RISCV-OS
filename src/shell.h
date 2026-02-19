@@ -11,6 +11,8 @@ typedef struct {
   int (*fonction)();
 } command_t;
 
+char *get_command(char va[MAX_LENGTH_COMMANDS]);
+int exec_command(char *cmd_str, char *target_cmd_str, int target_fct());
 int bash();
 
 #endif // __SHELL_H__

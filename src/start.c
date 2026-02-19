@@ -60,10 +60,6 @@ void idle() {
 // partir de 0x40000000, donc les offsets négatifs résultent en des adresses
 // virtuelles du genre 0x3FFFFFE0, ce qui provoque un segfault (pourtant ça
 // marche...)
-// BUG: Les codes des processus utilisent des adresses absolues du kernel. Les
-// jumps à ces adresses en mode user provoquent des page faults, ce qui fait
-// crash le processus. On doit donc s'assurer que les adresses des codes des
-// processus sont utilisées seulement par des syscalls.
 int user_process_test3() {
   while (1) {
     UPUTC('3');
@@ -80,13 +76,12 @@ int user_process_test2() {
 }
 
 int user_process_test() {
-  // NOTE: Les addresses sont relatives à pc
-  // uint64_t pid = UCREE_PROCESSUS(bash, "bash");
-  // UPUTC((char)pid + '0');
-  // while (1) {
-  UPUTS("hello world\n");
-  // }
-  UEXIT();
+  uint64_t pid = UCREE_PROCESSUS(user_process_test2, "test2");
+  UPUTC((char)pid + '0');
+  while (1) {
+    UPUTC('1');
+  }
+  UEXIT(0);
 }
 
 void kernel_start() {
@@ -106,8 +101,8 @@ void kernel_start() {
   // WARNING: il ne faut pas faire créer le premier bash par idle (avec waitpid)
   // car sinon, idle serait en attente de la mort de bash et quand bash lance un
   // processus qui se met à dormir alors il y a interblocage.
-  // cree_processus(bash, "bash");
-  cree_processus(user_process_test, "user_test");
+  cree_processus(bash, "bash");
+  // cree_processus(user_process_test, "user_test");
 
   idle();
 

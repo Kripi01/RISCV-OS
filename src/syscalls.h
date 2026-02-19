@@ -1,6 +1,8 @@
 #ifndef __SYSCALLS_H__
 #define __SYSCALLS_H__
 
+// TODO: réduire les commentaires
+
 #include "platform.h"
 #include <stdint.h>
 
@@ -39,12 +41,15 @@
 
 #define UWAITPID(pid) SYSCALL(CODE_UWAITPID, (uint64_t)(pid), 0, 0)
 
-#define UEXIT() return SYSCALL(CODE_EXIT, 0, 0, 0)
+#define UEXIT(exit_code) return SYSCALL(CODE_UEXIT, (uint64_t)(exit_code), 0, 0)
 
-#define UGET_COMMAND() (char *)SYSCALL(CODE_GET_COMMAND, 0, 0, 0)
+#define UPS() SYSCALL(CODE_UPS, 0, 0, 0)
+
+#define UGET_COMMAND(va)                                                       \
+  (char *)SYSCALL(CODE_UGET_COMMAND, (uint64_t)(va), 0, 0)
 
 #define UEXEC_COMMAND(cmd, target_cmd, target_fct)                             \
-  (int)SYSCALL(CODE_EXEC_COMMAND, (uint64_t)(cmd), (uint64_t)(target_cmd),     \
+  (int)SYSCALL(CODE_UEXEC_COMMAND, (uint64_t)(cmd), (uint64_t)(target_cmd),    \
                (uint64_t)(target_fct))
 
 #endif // __SYSCALLS_H__

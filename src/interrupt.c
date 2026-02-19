@@ -16,6 +16,8 @@
 // PLIC:
 // https://courses.grainger.illinois.edu/ECE391/fa2025/docs/riscv-plic-1.0.0.pdf
 
+// TODO: réduire les commentaires
+
 #include "interrupt.h"
 #include "cpu.h"
 #include "keyboard.h"
@@ -102,43 +104,40 @@ void s_trap_handler(uint64_t scause, uint64_t sie, uint64_t sip,
   else { // Exceptions
     if (EXC_IS_PF(scause)) {
       printf("Segmentation fault (core not dumped)\n");
-
       fin_processus(); // Une segfault kill le processus actif
     } else if (scause == EXC_S_ENV_CALL_FROM_U) { // syscall
       uint64_t code = tc->a7;
       switch (code) {
       case CODE_UPUTC: {
-        char c = tc->a0;
+        char c = (char)tc->a0;
         printf("%c", (char)c);
         break;
       }
       case CODE_UPUTS: {
-        uint64_t str = tc->a0;
+        char *str = (char *)tc->a0;
 
         // Lors du traitement d'une interruption/exception, le mode S utilise la
         // page table du mode U. Cependant, il ne peut pas accèder aux données
         // user à cause de PTE_U. Pour le uputs, on active temporairement le bit
         // SUM pour lire correctement l'adresse vrituelle du str et l'afficher.
         enable_sum();
-        printf("%s", (char *)str);
+        printf("%s", str);
         disable_sum();
         break;
       }
       case CODE_UCREE_PROCESSUS: {
         // ucree_processus étant appelé par un processus user, l'adresse de la
         // fonction fournie est une adresse virtuelle (dans son adressage)
-        uint64_t ps_code_va = tc->a0;
-        uint64_t ps_nom = tc->a1;
-
-        printf("va: %p\n", (void *)ps_code_va);
+        int (*ps_code_va)() = (int (*)())tc->a0;
+        char *ps_nom = (char *)tc->a1;
 
         // On doit autoriser le SUM pour lire correctement l'adresse virtuelle
         // du code du processus et du nom en mode S
         enable_sum();
-        uint64_t pid = cree_processus((int (*)())ps_code_va, (char *)ps_nom);
+        int64_t pid = cree_processus(ps_code_va, ps_nom);
         disable_sum();
 
-        tc->a0 = pid; // on retourne pid du processus créé
+        tc->a0 = pid; // on retourne le pid du processus créé
         break;
       }
       case CODE_UWAITPID: {
@@ -146,24 +145,28 @@ void s_trap_handler(uint64_t scause, uint64_t sie, uint64_t sip,
         waitpid(pid);
         break;
       }
-      case CODE_EXIT: {
-        fin_processus();
-        tc->a0 = 0; // UEXIT renvoie toujours 0 car la terminaison du processus
-                    // a réussi.
+      case CODE_UEXIT: {
+        fin_processus(); // On renvoie a0 qui est l'exit code (très souvent 0)
         break;
       }
-      case CODE_GET_COMMAND: {
-        char *c = get_command();
+      case CODE_UPS: {
+        tc->a0 = ps();
+        break;
+      }
+      case CODE_UGET_COMMAND: {
+        char *va = (char *)tc->a0;
+        char *c = get_command(va);
         tc->a0 = (uint64_t)c;
-
         break;
       }
-      case CODE_EXEC_COMMAND: {
-        char *command = (char *)tc->a0;
-        char *target_command = (char *)tc->a1;
-        uintptr_t target_function = tc->a2;
+      case CODE_UEXEC_COMMAND: {
+        char *cmd_str = (char *)tc->a0;
+        char *target_cmd_str = (char *)tc->a1;
+        int (*target_fct)() = (int (*)())tc->a2;
+
+        // on a potentiellement des adresses virtuelles donc bit SUM
         enable_sum();
-        exec_command(command, target_command, (int (*)())target_function);
+        tc->a0 = exec_command(cmd_str, target_cmd_str, target_fct);
         disable_sum();
         break;
       }
