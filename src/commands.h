@@ -4,7 +4,7 @@
 // int proc1();
 // int proc2();
 // int proc3();
-// int segfault_test();
+int segfault_test();
 // int double_mapping_test();
 int help();
 int f_true();

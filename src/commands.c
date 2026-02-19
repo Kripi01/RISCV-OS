@@ -41,32 +41,17 @@
 //   return 0;
 // }
 //
-// // BUG:
-// int segfault_test() {
-//   int *p = NULL;
-//   *p = 42;
-//   printf("p: %p, *p: %d\n", p, *p);
-//   return 0;
-// }
-//
-// // BUG:
-// int double_mapping_test() {
-//   uint8_t variable = 42;
-//   uint8_t *ptr1 = &variable;
-//   uint8_t *ptr2 = ptr1 + 0x80000000; /* + 2 GiB */
-//
-//   printf("ptr1 @%p = %u\n", ptr1, *ptr1);
-//   printf("ptr2 @%p = %u\n", ptr2, *ptr2);
-//   if (*ptr1 == *ptr2)
-//     printf("Test mémoire virtuelle OK\n");
-//   else
-//     printf("Test mémoire virtuelle FAIL\n");
-//
-//   return 0;
-// }
+
+int segfault_test() {
+  int *p = NULL;
+  *p = 42;
+  UPRINTF("p: %p, *p: %d\n", p, *p, 0, 0, 0, 0);
+  UEXIT(0);
+}
 
 int help() {
-  UPUTS("Commandes disponibles: help, ps, true, false, bash, clear\n");
+  UPUTS("Commandes disponibles: help, ps, true, false, bash, clear, "
+        "segfault_test\n");
   UEXIT(0);
 }
 
