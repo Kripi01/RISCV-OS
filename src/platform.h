@@ -148,10 +148,10 @@
 
 // Syscall codes
 // 0X pour les syscalls d'affichage écran/terminal
-#define UPUTC 0
-#define UPUTS 1
+#define CODE_UPUTC 0
+#define CODE_UPUTS 1
 // 1X pour les syscalls processus
-#define UCREE_PROCESSUS 10
+#define CODE_UCREE_PROCESSUS 10
 
 // UART
 #define UART_BASE 0x10000000

@@ -1,4 +1,6 @@
 // TODO: Free les PTE à la mort d'un processus!!!! (grosse memory leak!!!)
+// Il faut aussi free le code qui a été copié du kernel vers la zone mémoire du
+// processus (et mettre toute la mémoire à zero par sécurité).
 // TODO: repositionner les fonctions (refactor)
 // FIX: fin_processus
 // TODO: Ajouter un champ priorité aux processus pour améliorer la politique
@@ -54,8 +56,52 @@ void init_proc() {
   __asm__("sfence.vma zero, zero");
 }
 
-// Crée un processus, sans l'élire, et renvoie son PID (ou -1 si erreur).
-// Ne gère pas la filiation (cf. waitpid)
+// Charge le processus proc (l'adresse doit être valide pour le satp du
+// processus père=appelant -> elle peut donc être virtuelle -> c'est le cas si
+// ucree_processus), de taille proc_size, dans une zone mémoire accessible au
+// mode U. L' adresse du code du nouveau processus est placé dans le champ sepc
+// de son contexte (elle est un peu après USER_START_ADDR = 0x40000000)
+// WARNING: load_process doit être appelé avec le satp du processus père (on
+// l'appelle dans cree_processus donc OK)
+static void load_process(process_t *p, int proc(), size_t proc_size) {
+  uint64_t satp = p->contexte[18];
+  pagetable_t root = SATP2PT(satp);
+
+  // On copie + mappe le plus petit ensemble de pages contenant le code du
+  // processus dans une zone mémoire accessible au mode user (à partir de
+  // USER_START_ADDR).
+  // NOTE: Le code du processus est donc à 2 endroits (kernel et zone user)
+  uintptr_t page_start = (uintptr_t)proc & ~(PAGESIZE - 1);
+  uintptr_t offset_in_page = (uintptr_t)proc & (PAGESIZE - 1);
+
+  size_t total_to_copy = proc_size + offset_in_page;
+  size_t copied = 0;
+  while (copied < total_to_copy) {
+    void *pa = get_frame();
+    memcpy((void *)pa, (void *)((uintptr_t)page_start + copied), PAGESIZE);
+    map_page(root, USER_START_ADDR + copied, (uintptr_t)pa, PTE_RWXV | PTE_U);
+
+    copied += PAGESIZE;
+  }
+
+  // WARNING: Le début du code du nouveau processus est donc USER_START_ADDR +
+  // offset_in_page car on a copié toute la page
+  p->contexte[16] = USER_START_ADDR + offset_in_page; // sepc
+
+  // La pile user n'est pas fiable pour le mode S, donc on utilise une pile
+  // différente (pour l'ordonnacement, interruptions, etc). Le sp de la pile
+  // kernel est dans sscratch et p->pile. On choisit 0x50000000 comme adresse
+  // virtuelle de la pile user -> on ne peut pas y accèder en mode S/M.
+  void *pa_stack = get_frame();
+  memset(pa_stack, 0, FRAMESIZE); // par sécurité
+  // la pile va de 0x4FFFF000 à 0x50000000
+  map_page(root, USER_STACK_ADDRESS - PAGESIZE, (uintptr_t)pa_stack,
+           PTE_RWXV | PTE_U);
+}
+
+// Crée et alloue la mémoire d'un processus, sans l'élire, et renvoie son PID
+// (ou -1 si erreur). Ne gère pas la filiation (cf. waitpid)
+// WARNING: La taille maximale du processus est 4KB (ajustable)
 int64_t cree_processus(int code(), char *nom) {
   if (max_nb_pid >= MAX_NB_PROCESSES) {
     return -1;
@@ -92,6 +138,9 @@ int64_t cree_processus(int code(), char *nom) {
 
   uint64_t satp = init_vm(p->pid); // on utilise le PID pour l'ASID (unicité)
   p->contexte[18] = satp; // On basculera l'adressage lors du context switch
+
+  // On copie + mappe le code du processus dans sa mémoire.
+  load_process(p, code, PAGESIZE); // taille max du processus = 4KB
 
   return p->pid;
 }
@@ -194,52 +243,23 @@ void affiche_etats() {
   }
 }
 
-// Charge le processus proc (=adresse DANS LE KERNEL du code -> adresse physique
-// car mapping 1:1), de taille proc_size, dans une zone mémoire accessible au
-// mode U: USER_START_ADDR == 0x40000000
-// BUG: Si le processus a été créé via ucree_processus alors proc est une
-// adresse virtuelle
-static void load_process(int proc(), size_t proc_size) {
-  uint64_t satp = actif->contexte[18];
-  pagetable_t root = SATP2PT(satp);
-
-  // On copie le code du processus dans une zone mémoire accessible au mode
-  // user. Puis on la mappe avec l'adresse virtuelle 0x40000000.
-  // NOTE: Le code du processus est présent à 2 endroits (kernel et zone user)
-  for (size_t offset = 0; offset < proc_size; offset += PAGESIZE) {
-    void *pa = get_frame();
-    memcpy((void *)pa, (void *)((uintptr_t)proc + offset), PAGESIZE);
-    map_page(root, USER_START_ADDR + offset, (uintptr_t)pa, PTE_RWXV | PTE_U);
-  }
-
-  // La pile user n'est pas fiable pour le mode S, donc on utilise une pile
-  // différente (pour l'ordonnacement, interruptions, etc). Le sp de la pile
-  // kernel est dans sscratch et p->pile. On choisit 0x50000000 comme adresse
-  // virtuelle de la pile user -> on ne peut pas y accèder en mode S/M.
-  void *pa_stack = get_frame();
-  map_page(root, USER_STACK_ADDRESS - PAGESIZE, (uintptr_t)pa_stack,
-           PTE_RWXV | PTE_U);
-}
-
 // Lance le processus en argument et s'assure de la terminaison de celui-ci.
 // C'est cette fonction qui fait le passage au mode U pour lancer le processus.
+// WARNING: proc_launcher doit être appelé avec le satp du processus fils (le
+// changement de satp est fait dans ctx_sw)
+// TODO: ON N'UTILISE PLUS L'ARGUMENT PROC!!!! (Ça simplifie énormément la
+// logique normalement)
 void proc_launcher(int proc()) {
   // Les nouveaux processus commencent avec les interruptions timer autorisées.
   // Ça fixe le bug de non-actualisation de l'horloge quand un processus est
   // lancé par un processus ayant les interruptions désactivées e.g. bash
   s_enable_it();
 
-  load_process(proc, PAGESIZE); // taille max du processus = 4KB
-
   // On passe en mode user
   __asm__("csrc sstatus, %0" ::"r"(SSTATUS_SPP));  // mode user
   __asm__("csrs sstatus, %0" ::"r"(SSTATUS_SPIE)); // IRQ enabled
 
-  // BUG: Pour l'instant, les code des processus utilisent des adresses absolues
-  // du kernel. Les jumps à ces adresses en mode user provoquent des page
-  // faults, ce qui fait crash le processus.
-  // FIX: il faut transformer les processus en Position Independant Code (PIC).
-  __asm__("csrw sepc, %0" ::"r"(USER_START_ADDR));
+  __asm__("csrw sepc, %0" ::"r"(actif->contexte[16]));
 
   // On sauvegarde le sp kernel dans sscratch
   uintptr_t kstack_top = (uintptr_t)actif->pile + PROCESS_STACK_SIZE;

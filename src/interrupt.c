@@ -17,6 +17,7 @@
 // https://courses.grainger.illinois.edu/ECE391/fa2025/docs/riscv-plic-1.0.0.pdf
 
 #include "interrupt.h"
+#include "cpu.h"
 #include "keyboard.h"
 #include "platform.h"
 #include "process.h"
@@ -39,26 +40,6 @@ static void update_time() {
   sprintf(time_str, "[%02u:%02u:%02u]", (n / 3600) % 100, (n / 60) % 60,
           n % 60);
   display_top_right(time_str, 10);
-}
-
-// Modifie sepc pour pouvoir revenir à l'instruction suivant le ecall.
-static void return_ecall_s() {
-  // sepc stocke le pc de ecall, donc il faut l'incrémenter de la taille d'une
-  // instruction = 32 bits
-  uint64_t sepc;
-  __asm__("csrr %0, sepc" : "=r"(sepc));
-  sepc += 4;
-  __asm__("csrw sepc, %0" ::"r"(sepc));
-}
-
-static void enable_sum() {
-  __asm__("li t0, 0x40000\n"
-          "csrs sstatus, t0");
-}
-
-static void disable_sum() {
-  __asm__("li t0, 0x40000\n"
-          "csrc sstatus, t0");
 }
 
 // Gère les interruptions du mode S. Fait un syscall pour ack l'IRQ
@@ -125,12 +106,12 @@ void s_trap_handler(uint64_t scause, uint64_t sie, uint64_t sip,
     } else if (scause == EXC_S_ENV_CALL_FROM_U) { // syscall
       uint64_t code = tc->a7;
       switch (code) {
-      case UPUTC: {
+      case CODE_UPUTC: {
         char c = tc->a0;
         printf("%c", (char)c);
         break;
       }
-      case UPUTS: {
+      case CODE_UPUTS: {
         uint64_t str = tc->a0;
 
         // Lors du traitement d'une interruption/exception, le mode S utilise la
@@ -142,16 +123,19 @@ void s_trap_handler(uint64_t scause, uint64_t sie, uint64_t sip,
         disable_sum();
         break;
       }
-      case UCREE_PROCESSUS: {
-        uint64_t proc_code = tc->a0;
-        uint64_t proc_nom = tc->a1;
+      case CODE_UCREE_PROCESSUS: {
+        // ucree_processus étant appelé par un processus user, l'adresse de la
+        // fonction fournie est une adresse virtuelle (dans son adressage)
+        uint64_t ps_code_va = tc->a0;
+        uint64_t ps_nom = tc->a1;
 
-        // proc_code est une adresse virtuelle, donc on active le bit SUM
+        // On doit autoriser le SUM pour lire correctement l'adresse virtuelle
+        // du code du processus et du nom en mode S
         enable_sum();
-        uint64_t pid = cree_processus((int (*)())proc_code, (char *)proc_nom);
+        uint64_t pid = cree_processus((int (*)())ps_code_va, (char *)ps_nom);
         disable_sum();
 
-        tc->a0 = pid; // on retourne pid
+        tc->a0 = pid; // on retourne pid du processus créé
         break;
       }
       default:
@@ -161,16 +145,6 @@ void s_trap_handler(uint64_t scause, uint64_t sie, uint64_t sip,
       return_ecall_s();
     }
   }
-}
-
-// Modifie mepc pour pouvoir revenir à l'instruction suivant le ecall.
-static void return_ecall_m() {
-  // mepc stocke le pc de ecall, donc il faut l'incrémenter de la taille d'une
-  // instruction = 32 bits
-  uint64_t mepc;
-  __asm__("csrr %0, mepc" : "=r"(mepc));
-  mepc += 4;
-  __asm__("csrw mepc, %0" ::"r"(mepc));
 }
 
 // Gère (ou masque) les interruptions du mode M.
