@@ -125,6 +125,15 @@ void s_trap_handler(uint64_t scause, uint64_t sie, uint64_t sip,
         disable_sum();
         break;
       }
+      case CODE_UPRINTF: {
+        char *fmt = (char *)tc->a0;
+        enable_sum();
+        // Si il y a moins que 7 arguments, alors les arguments superflus sont
+        // ignorés par printf (c'est un warning mais pas une erreur).
+        printf(fmt, tc->a1, tc->a2, tc->a3, tc->a4, tc->a5, tc->a6);
+        disable_sum();
+        break;
+      }
       case CODE_UCREE_PROCESSUS: {
         // ucree_processus étant appelé par un processus user, l'adresse de la
         // fonction fournie est une adresse virtuelle (dans son adressage)

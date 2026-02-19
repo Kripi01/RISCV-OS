@@ -150,6 +150,8 @@
 // 0X pour les syscalls d'affichage écran/terminal
 #define CODE_UPUTC 0
 #define CODE_UPUTS 1
+#define CODE_UPRINTF 2
+
 // 1X pour les syscalls processus
 #define CODE_UCREE_PROCESSUS 10
 #define CODE_UWAITPID 11

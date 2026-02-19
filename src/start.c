@@ -68,7 +68,7 @@ int user_process_test3() {
 }
 
 int user_process_test2() {
-  uint64_t pid = UCREE_PROCESSUS(user_process_test3, "test3");
+  UCREE_PROCESSUS(user_process_test3, "test3");
   while (1) {
     UPUTC('2');
   }
@@ -77,7 +77,7 @@ int user_process_test2() {
 
 int user_process_test() {
   uint64_t pid = UCREE_PROCESSUS(user_process_test2, "test2");
-  UPUTC((char)pid + '0');
+  UPRINTF("%d\n", pid, 0, 0, 0, 0, 0);
   while (1) {
     UPUTC('1');
   }

@@ -5,8 +5,6 @@
 // TODO: Ajouter un champ priorité aux processus pour améliorer la politique
 // d'ordonnacement (exemple: idle a une prorité de 0 et bash une priorité de 5)
 // TODO: Simplifier les commentaires
-// TODO: renommer les fonctions s'exécutant en mode S en sys_.... et celles
-// s'exécutant en mode U en u...
 
 #include "process.h"
 #include "interrupt.h"
