@@ -81,12 +81,12 @@ int user_process_test2() {
 
 int user_process_test() {
   // NOTE: Les addresses sont relatives à pc
-  uint64_t pid = UCREE_PROCESSUS(user_process_test2, "test2");
+  // uint64_t pid = UCREE_PROCESSUS(bash, "bash");
   // UPUTC((char)pid + '0');
-  while (1) {
-    UPUTS("hello world");
-  }
-  return 0;
+  // while (1) {
+  UPUTS("hello world\n");
+  // }
+  UEXIT();
 }
 
 void kernel_start() {

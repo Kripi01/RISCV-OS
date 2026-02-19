@@ -17,22 +17,34 @@
 // s'évalue à sa dernière expression [ pour pouvoir faire uint64_t a0 =
 // SYSCALL(code, a0, a1)
 // ]
-#define SYSCALL(code, a0, a1)                                                  \
+#define SYSCALL(code, a0, a1, a2)                                              \
   ({                                                                           \
     __asm__("mv a7, %0" ::"r"((code)));                                        \
     __asm__("mv a0, %0" ::"r"((a0)));                                          \
     __asm__("mv a1, %0" ::"r"((a1)));                                          \
+    __asm__("mv a2, %0" ::"r"((a2)));                                          \
     __asm__("ecall");                                                          \
     uint64_t res;                                                              \
     __asm__("mv %0, a0" : "=r"((res)));                                        \
     res;                                                                       \
   })
 
-#define UPUTC(c) SYSCALL(CODE_UPUTC, (uint64_t)(c), 0)
+#define UPUTC(c) SYSCALL(CODE_UPUTC, (uint64_t)(c), 0, 0)
 
-#define UPUTS(str) SYSCALL(CODE_UPUTS, (uint64_t)(str), 0)
+#define UPUTS(str) SYSCALL(CODE_UPUTS, (uint64_t)(str), 0, 0)
 
 #define UCREE_PROCESSUS(proc_code, nom)                                        \
-  SYSCALL(CODE_UCREE_PROCESSUS, (uint64_t)(proc_code), (uint64_t)nom)
+  (int64_t)SYSCALL(CODE_UCREE_PROCESSUS, (uint64_t)(proc_code),                \
+                   (uint64_t)(nom), 0)
+
+#define UWAITPID(pid) SYSCALL(CODE_UWAITPID, (uint64_t)(pid), 0, 0)
+
+#define UEXIT() return SYSCALL(CODE_EXIT, 0, 0, 0)
+
+#define UGET_COMMAND() (char *)SYSCALL(CODE_GET_COMMAND, 0, 0, 0)
+
+#define UEXEC_COMMAND(cmd, target_cmd, target_fct)                             \
+  (int)SYSCALL(CODE_EXEC_COMMAND, (uint64_t)(cmd), (uint64_t)(target_cmd),     \
+               (uint64_t)(target_fct))
 
 #endif // __SYSCALLS_H__

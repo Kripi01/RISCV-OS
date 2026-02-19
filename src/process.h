@@ -34,7 +34,7 @@ void dors(uint64_t nbr_secs);
 void fin_processus();
 void waitpid(int64_t p);
 void affiche_etats();
-void proc_launcher(int proc());
+void proc_launcher();
 int ps();
 
 extern void idle();

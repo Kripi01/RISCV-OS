@@ -2,7 +2,6 @@
 // Il faut aussi free le code qui a été copié du kernel vers la zone mémoire du
 // processus (et mettre toute la mémoire à zero par sécurité).
 // TODO: repositionner les fonctions (refactor)
-// FIX: fin_processus
 // TODO: Ajouter un champ priorité aux processus pour améliorer la politique
 // d'ordonnacement (exemple: idle a une prorité de 0 et bash une priorité de 5)
 
@@ -17,9 +16,6 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
-
-extern char init_proc_launcher;
-const uintptr_t addr_init_proc_launcher = (uintptr_t)&init_proc_launcher;
 
 static int max_nb_pid = 0;
 static process_t scheduler[MAX_NB_PROCESSES];
@@ -128,8 +124,8 @@ int64_t cree_processus(int code(), char *nom) {
 
   // Lors du premier ctx_sw, le ret nous emmène dans init_proc_launcher qui
   // appelle proc_launcher en mettant a0 à s0 (=code)
-  p->contexte[0] = (uint64_t)addr_init_proc_launcher; // ra
-  p->contexte[4] = (uint64_t)code;                    // s0
+  p->contexte[0] = (uint64_t)proc_launcher; // ra
+  p->contexte[4] = (uint64_t)code;          // s0
 
   p->contexte[1] = (uint64_t)(p->pile + PROCESS_STACK_SIZE); // pile kernel
 
@@ -140,7 +136,7 @@ int64_t cree_processus(int code(), char *nom) {
   p->contexte[18] = satp; // On basculera l'adressage lors du context switch
 
   // On copie + mappe le code du processus dans sa mémoire.
-  load_process(p, code, PAGESIZE); // taille max du processus = 4KB
+  load_process(p, code, 10 * PAGESIZE); // taille max du processus = 40KB
 
   return p->pid;
 }
@@ -247,15 +243,14 @@ void affiche_etats() {
 // C'est cette fonction qui fait le passage au mode U pour lancer le processus.
 // WARNING: proc_launcher doit être appelé avec le satp du processus fils (le
 // changement de satp est fait dans ctx_sw)
-// TODO: ON N'UTILISE PLUS L'ARGUMENT PROC!!!! (Ça simplifie énormément la
-// logique normalement)
-void proc_launcher(int proc()) {
+void proc_launcher() {
   // Les nouveaux processus commencent avec les interruptions timer autorisées.
   // Ça fixe le bug de non-actualisation de l'horloge quand un processus est
   // lancé par un processus ayant les interruptions désactivées e.g. bash
   s_enable_it();
 
   // On passe en mode user
+  // TODO: faire cela dans cree_processus
   __asm__("csrc sstatus, %0" ::"r"(SSTATUS_SPP));  // mode user
   __asm__("csrs sstatus, %0" ::"r"(SSTATUS_SPIE)); // IRQ enabled
 
@@ -269,10 +264,8 @@ void proc_launcher(int proc()) {
 
   // On lance le processus
   __asm__("sret");
-
-  // NOTE: idle ne termine jamais donc il n'atteint jamais cette ligne
-  // BUG: Pour tous les processus, on attient jamais cette ligne en fait...
-  fin_processus();
+  // WARNING: Pour terminer correctement le processus, il faut faire le syscall
+  // UEXIT (qui appelle fin_processus) à la fin de ce dernier.
 }
 
 // Commande ps: affiche les processus actifs sous la forme d'un tableau.

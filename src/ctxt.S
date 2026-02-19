@@ -63,9 +63,7 @@ ctx_sw_fin_prologue:
   # on flushe le TLB pour que l'écriture de satp soit prise en compte dans le buffer
   sfence.vma zero, zero
 
-  # On jump vers ra. Au premier context switch du processus, on jump vers init_proc_launcher
-  # qui va appeler proc_launcher (qui passe en mode U) avec le code du processus
-  # (contenu dans s0, cf. processs.c) i.e. vers proc_launcher avec les bons arguments
+  # On jump vers ra. Au premier context switch du processus, on jump vers proc_launcher (qui passe en mode U).
   ret
 
 ctx_sw_debut_epilogue:

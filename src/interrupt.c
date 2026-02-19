@@ -22,6 +22,7 @@
 #include "platform.h"
 #include "process.h"
 #include "screen.h"
+#include "shell.h"
 #include <stdint.h>
 #include <stdio.h>
 
@@ -129,6 +130,8 @@ void s_trap_handler(uint64_t scause, uint64_t sie, uint64_t sip,
         uint64_t ps_code_va = tc->a0;
         uint64_t ps_nom = tc->a1;
 
+        printf("va: %p\n", (void *)ps_code_va);
+
         // On doit autoriser le SUM pour lire correctement l'adresse virtuelle
         // du code du processus et du nom en mode S
         enable_sum();
@@ -136,6 +139,32 @@ void s_trap_handler(uint64_t scause, uint64_t sie, uint64_t sip,
         disable_sum();
 
         tc->a0 = pid; // on retourne pid du processus créé
+        break;
+      }
+      case CODE_UWAITPID: {
+        int64_t pid = tc->a0;
+        waitpid(pid);
+        break;
+      }
+      case CODE_EXIT: {
+        fin_processus();
+        tc->a0 = 0; // UEXIT renvoie toujours 0 car la terminaison du processus
+                    // a réussi.
+        break;
+      }
+      case CODE_GET_COMMAND: {
+        char *c = get_command();
+        tc->a0 = (uint64_t)c;
+
+        break;
+      }
+      case CODE_EXEC_COMMAND: {
+        char *command = (char *)tc->a0;
+        char *target_command = (char *)tc->a1;
+        uintptr_t target_function = tc->a2;
+        enable_sum();
+        exec_command(command, target_command, (int (*)())target_function);
+        disable_sum();
         break;
       }
       default:
