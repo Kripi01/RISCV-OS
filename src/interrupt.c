@@ -155,11 +155,28 @@ void s_trap_handler(uint64_t scause, uint64_t sie, uint64_t sip,
         break;
       }
       case CODE_UEXIT: {
-        fin_processus(); // On renvoie a0 qui est l'exit code (très souvent 0)
+        fin_processus();
+        // On renvoie a0 qui est l'exit code, donc tc->a0 ne change pas
         break;
       }
       case CODE_UPS: {
         tc->a0 = ps();
+        break;
+      }
+      case CODE_UDORS: {
+        dors(tc->a0);
+        break;
+      }
+      case CODE_UNBR_SECONDES: {
+        tc->a0 = nbr_secondes();
+        break;
+      }
+      case CODE_UMON_NOM: {
+        tc->a0 = (uint64_t)mon_nom();
+        break;
+      }
+      case CODE_UMON_PID: {
+        tc->a0 = mon_pid();
         break;
       }
       case CODE_UGET_COMMAND: {

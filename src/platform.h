@@ -157,6 +157,10 @@
 #define CODE_UWAITPID 11
 #define CODE_UEXIT 12
 #define CODE_UPS 13
+#define CODE_UDORS 14
+#define CODE_UNBR_SECONDES 15
+#define CODE_UMON_NOM 16
+#define CODE_UMON_PID 17
 
 // 2X pour les syscalls bash
 #define CODE_UGET_COMMAND 20

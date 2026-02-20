@@ -177,7 +177,6 @@ int64_t mon_pid() { return actif->pid; }
 char *mon_nom() { return actif->nom; }
 
 // Endort le processus actif et change de processus.
-// WARNING: Cette fonction ne doit jamais être appelée sur idle.
 void dors(uint64_t nbr_secs) {
   actif->etat = ENDORMI;
   actif->heure_reveil = nbr_secondes() + nbr_secs;

@@ -10,7 +10,6 @@
 #include "process.h"
 #include "screen.h"
 #include "shell.h"
-#include "syscalls.h"
 #include "uart.h"
 #include <stdint.h>
 
@@ -55,35 +54,6 @@ void idle() {
   }
 }
 
-// BUG: le code des fonctions apelées dans un processus doit se situer après le
-// code du processus car dans load_process on copie le code du processus à
-// partir de 0x40000000, donc les offsets négatifs résultent en des adresses
-// virtuelles du genre 0x3FFFFFE0, ce qui provoque un segfault (pourtant ça
-// marche...)
-int user_process_test3() {
-  while (1) {
-    UPUTC('3');
-  }
-  return 0;
-}
-
-int user_process_test2() {
-  UCREE_PROCESSUS(user_process_test3, "test3");
-  while (1) {
-    UPUTC('2');
-  }
-  return 0;
-}
-
-int user_process_test() {
-  uint64_t pid = UCREE_PROCESSUS(user_process_test2, "test2");
-  UPRINTF("%d\n", pid, 0, 0, 0, 0, 0);
-  while (1) {
-    UPUTC('1');
-  }
-  UEXIT(0);
-}
-
 void kernel_start() {
   init_uart();
   enable_uart_interrupts();
@@ -102,7 +72,6 @@ void kernel_start() {
   // car sinon, idle serait en attente de la mort de bash et quand bash lance un
   // processus qui se met à dormir alors il y a interblocage.
   cree_processus(bash, "bash");
-  // cree_processus(user_process_test, "user_test");
 
   idle();
 

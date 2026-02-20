@@ -10,10 +10,9 @@ extern int ups();
 extern int help();
 extern int f_true();
 extern int f_false();
-// TODO:
-// extern int proc1();
-// extern int proc2();
-// extern int proc3();
+extern int proc1();
+extern int proc2();
+extern int proc3();
 extern int history();
 extern int fg();
 extern int clear();
@@ -27,9 +26,9 @@ command_t commands[] = {
     {.nom = "history", .fonction = history},
     {.nom = "true", .fonction = f_true},
     {.nom = "false", .fonction = f_false},
-    // {.nom = "proc1", .fonction = proc1},
-    // {.nom = "proc2", .fonction = proc2},
-    // {.nom = "proc3", .fonction = proc3},
+    {.nom = "proc1", .fonction = proc1},
+    {.nom = "proc2", .fonction = proc2},
+    {.nom = "proc3", .fonction = proc3},
     {.nom = "bash", .fonction = bash},
     {.nom = "fg", .fonction = fg},
     {.nom = "clear", .fonction = clear},
