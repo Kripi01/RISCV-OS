@@ -6,6 +6,8 @@
 // d'ordonnacement (exemple: idle a une prorité de 0 et bash une priorité de 5)
 
 #include "process.h"
+#include "buddy_heap.h"
+#include "cpu.h"
 #include "interrupt.h"
 #include "platform.h"
 #include "pm.h"
@@ -45,6 +47,8 @@ void init_proc() {
   // idle devient le processus courant
   actif = p;
   max_nb_pid = 1;
+
+  // NOTE: on alloue pas de tas pour idle
 
   // On bascule directement l'adressage (pagination active)
   __asm__("csrw satp, %0" ::"r"(satp));
@@ -238,7 +242,9 @@ void affiche_etats() {
 // WARNING: proc_launcher doit être appelé avec le satp du processus fils (le
 // changement de satp est fait dans ctx_sw)
 void proc_launcher() {
-  // On passe en mode user
+  buddy_init_heap();
+
+  // On passe en mode user (après le sret)
   __asm__("csrc sstatus, %0" ::"r"(SSTATUS_SPP));  // mode user
   __asm__("csrs sstatus, %0" ::"r"(SSTATUS_SPIE)); // IRQ seront autorisées
 
@@ -272,4 +278,51 @@ int ps() {
   printf("+-----------------+-------+------------+\n");
 
   return 0;
+}
+
+/* ======================================================= */
+/* ============== GESTION DU TAS DES PROCESSUS =========== */
+/* ======================================================= */
+
+// WARNING: Cette fonction doit être exécutée en mode S
+static void allocate_heap_frames() {
+  uint64_t satp = actif->contexte[18];
+  pagetable_t root = SATP2PT(satp);
+
+  for (uint64_t page = 0; page < HEAP_SIZE; page += PAGESIZE) {
+    void *pa = get_frame();
+    map_page(root, HEAP_START + page, (uintptr_t)pa, PTE_RWV | PTE_U);
+  }
+
+  // le heap_arr est stocké juste avant le début du tas (la page précédente). Il
+  // fait 64 * 8 = 512 bytes donc il tient sur une page
+  void *pa = get_frame();
+  map_page(root, HEAP_ARR_START, (uintptr_t)pa, PTE_RWXV | PTE_U);
+  memset((void *)HEAP_ARR_START, 0, MAX_ORDER); // remise à zero des free list
+}
+
+// Initialise le tas du processus (en mémoire user): HEAP_ARR et les free lists.
+// WARNING: Cette fonction doit être exécutée en mode S
+void buddy_init_heap() {
+  enable_sum();
+  allocate_heap_frames();
+
+  // On décompose heap_size en puissances de 2 et on crée un bloc pour chacune
+  uintptr_t heap_ptr = HEAP_START;
+  // NOTE: la boucle doit se faire à l'envers car un bloc de taille 2^k doit
+  // toujours commencer à une adresse multiple de 2^k (tous les bits d'indice
+  // inférieur à k sont à 0) pour que le XOR du buddy fonctionne.
+  for (int order = MAX_ORDER - 1; order >= (int)MIN_ORDER; order--) {
+    uint64_t bit = (HEAP_SIZE >> order) & 1;
+    if (bit != 0) {
+      buddy_free_list_t block = {
+          .order = order, .is_free = 1, .prev = NULL, .next = NULL};
+      *(buddy_free_list_t *)heap_ptr = block;
+      ((buddy_free_list_t **)HEAP_ARR_START)[order] =
+          (buddy_free_list_t *)heap_ptr;
+      heap_ptr += (1ULL << order);
+    }
+  }
+
+  disable_sum();
 }

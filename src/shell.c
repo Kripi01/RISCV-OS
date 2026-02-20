@@ -14,8 +14,8 @@ extern int proc3();
 extern int history();
 extern int fg();
 extern int clear();
-// extern int buddy_heap_test();
-// extern int buddy_heap_overflow_test();
+extern int buddy_heap_test();
+extern int buddy_heap_overflow_test();
 extern int segfault_test();
 extern int france();
 
@@ -31,9 +31,8 @@ command_t commands[] = {
     {.nom = "bash", .fonction = bash},
     {.nom = "fg", .fonction = fg},
     {.nom = "clear", .fonction = clear},
-    // {.nom = "buddy_heap_test", .fonction = buddy_heap_test},
-    // {.nom = "buddy_heap_overflow_test", .fonction =
-    // buddy_heap_overflow_test},
+    {.nom = "buddy_heap_test", .fonction = buddy_heap_test},
+    {.nom = "buddy_heap_overflow_test", .fonction = buddy_heap_overflow_test},
     {.nom = "segfault_test", .fonction = segfault_test},
     {.nom = "france", .fonction = france},
 };

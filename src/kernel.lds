@@ -13,7 +13,13 @@ SECTIONS {
 	. = 0x80000000;
   PROVIDE(_kernel_start = .); /* _kernel_start est bien aligné sur 4KB (=1 frame) */
 	.text : {
-		*(.text.init) *(.text) *(.text.*)
+		*(.text.init)
+    /* Bricolage: on place les tests avant le buddy heap allocator pour éviter le BUG
+     * (cf. tests.c) */
+    tests.o(.text .text.*)
+    buddy_heap.o(.text .text.*)
+
+    *(.text) *(.text.*)
 		_etext = .;
 	}  > ram
 
@@ -40,11 +46,6 @@ SECTIONS {
 
   . = ALIGN(4096);
   PROVIDE(_kernel_end = .); /* _kernel_end est aligné sur 4KB */
-
-  /* Le tas est inclu dans les frames physiques */
-  PROVIDE(_heap_start = .);
-  PROVIDE(_heap_end = _heap_start + 32M); /* Tas de 32MB */
-  . = . + 32M; /* on avance le curseur (PROVIDE ne l'avance pas) */
 
   . = ALIGN(4096); /* La mémoire libre doit être alignée sur 4KB */
   PROVIDE(_free_memory_start = .);

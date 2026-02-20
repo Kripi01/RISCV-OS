@@ -1,7 +1,6 @@
 // TODO: Dans tous les fichiers, utiliser au maximum des static pour
 // l'encapsulation
 
-#include "buddy_heap.h"
 #include "cpu.h"
 #include "interrupt.h"
 #include "keyboard.h"
@@ -44,7 +43,6 @@ void kernel_start() {
   enable_uart_interrupts();
   init_ecran();
 
-  buddy_init_heap();
   init_frames();
 
   init_proc(); // crée idle et l'élit.

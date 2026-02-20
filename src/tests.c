@@ -1,11 +1,16 @@
 #include "tests.h"
 #include "buddy_heap.h"
+#include "syscalls.h"
 #include <stdio.h>
 
 /* ====================================== */
 /* ==== BUDDY MEMORY ALLOCATION TEST ==== */
 /* ====================================== */
 
+// BUG: adresses relatives (auipc) donc l'adresse de buddy_malloc est avant
+// buddy_heap_test, tellement avant qu'elle est avant 0x40000000
+// FIX: on la force à être après dans le linker script (mais c'est vraiment du
+// bricolage)
 int buddy_heap_test() {
   int N = 10;
 
@@ -19,9 +24,9 @@ int buddy_heap_test() {
 
   for (int i = 0; i < N; i++) {
     for (int j = 0; j < N; j++) {
-      printf("%d ", mat[i][j]);
+      UPRINTF("%d ", mat[i][j], 0, 0, 0, 0, 0);
     }
-    printf("\n");
+    UPUTS("\n");
   }
 
   // Puis on free la matrice
@@ -30,24 +35,24 @@ int buddy_heap_test() {
   }
   buddy_free(mat);
 
-  return 0;
+  UEXIT(0);
 }
 
 int buddy_heap_overflow_test() {
   int size = 128000000; // overflow! (la ram fait 128Mo)
   char *tab = buddy_malloc(size * sizeof(char));
   if (tab == NULL) {
-    return 1;
+    UEXIT(1);
   }
 
   for (int i = 0; i < size; i++) {
     if (i % 10000000 == 0) {
-      printf("i: %d\n", i);
+      UPRINTF("i: %d\n", i, 0, 0, 0, 0, 0);
     }
     tab[i] = 'b';
   }
 
   buddy_free(tab);
 
-  return 0;
+  UEXIT(0);
 }
