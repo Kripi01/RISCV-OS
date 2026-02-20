@@ -4,7 +4,6 @@
 // TODO: repositionner les fonctions (refactor)
 // TODO: Ajouter un champ priorité aux processus pour améliorer la politique
 // d'ordonnacement (exemple: idle a une prorité de 0 et bash une priorité de 5)
-// TODO: Simplifier les commentaires
 
 #include "process.h"
 #include "interrupt.h"
@@ -23,11 +22,11 @@ static process_t *actif;
 static char *nom_etats[5] = {"ELU", "ACTIVABLE", "ENDORMI", "MORT",
                              "EN ATTENTE"};
 
-// (Ré)initialise la gestion des processus. Idle devient le processus actif.
+// (Ré)initialise la gestion des processus. Idle devient le processus actif
+// idle est indispensable pour que le système soit toujours actif.
 void init_proc() {
-  // PID 0 (idle) -> indispensable pour que le système soit toujours actif
   process_t *p = &scheduler[0];
-  p->pid = 0;
+  p->pid = 0;        // idle est toujours de PID 0
   p->pid_parent = 0; // arbitraire car jamais utilisé pour idle
   snprintf(p->nom, MAX_CHAR_NAME, "idle");
   p->etat = ELU;
@@ -52,11 +51,10 @@ void init_proc() {
   __asm__("sfence.vma zero, zero");
 }
 
-// Charge le processus proc (l'adresse doit être valide pour le satp du
-// processus père=appelant -> elle peut donc être virtuelle -> c'est le cas si
-// ucree_processus), de taille proc_size, dans une zone mémoire accessible au
-// mode U. L' adresse du code du nouveau processus est placé dans le champ sepc
-// de son contexte (elle est un peu après USER_START_ADDR = 0x40000000)
+// Charge le processus proc (adresse possiblement virtuelle), de taille max
+// proc_size, dans une zone mémoire accessible au processus user (p).
+// L'adresse du code du nouveau processus est placé dans le champ sepc de son
+// contexte (un peu après USER_START_ADDR = 0x40000000)
 // WARNING: load_process doit être appelé avec le satp du processus père (on
 // l'appelle dans cree_processus donc OK)
 static void load_process(process_t *p, int proc(), size_t proc_size) {
@@ -79,15 +77,13 @@ static void load_process(process_t *p, int proc(), size_t proc_size) {
 
     copied += PAGESIZE;
   }
-
   // WARNING: Le début du code du nouveau processus est donc USER_START_ADDR +
   // offset_in_page car on a copié toute la page
   p->contexte[16] = USER_START_ADDR + offset_in_page; // sepc
 
   // La pile user n'est pas fiable pour le mode S, donc on utilise une pile
-  // différente (pour l'ordonnacement, interruptions, etc). Le sp de la pile
-  // kernel est dans sscratch et p->pile. On choisit 0x50000000 comme adresse
-  // virtuelle de la pile user -> on ne peut pas y accèder en mode S/M.
+  // différente (pour l'ordonnacement, interruptions, etc), le sommet (le sp)
+  // de la pile kernel est dans sscratch et p->pile.
   void *pa_stack = get_frame();
   memset(pa_stack, 0, FRAMESIZE); // par sécurité
   // la pile va de 0x4FFFF000 à 0x50000000

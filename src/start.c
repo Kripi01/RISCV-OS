@@ -27,7 +27,7 @@ void console_putbytes(const char *s, int len) {
 /* ===================== UTILITAIRES ===================== */
 /* ======================================================= */
 
-// idle est le seul processus à être exécuté en mode S (pour le wfi)
+// idle est le seul processus à être exécuté en mode S (pour les wfi,...)
 void idle() {
   _place_curseur(1, 0); // On affiche le premier curseur
 
@@ -39,24 +39,21 @@ void idle() {
 }
 
 void kernel_start() {
+  init_traitant(mon_traitant); // traitant du mode S
   init_uart();
   enable_uart_interrupts();
   init_ecran();
 
   buddy_init_heap();
-
-  init_traitant(mon_traitant); // pour le mode S
-  enable_timer();
-
   init_frames();
 
   init_proc(); // crée idle et l'élit.
-
   // WARNING: il ne faut pas faire créer le premier bash par idle (avec waitpid)
   // car sinon, idle serait en attente de la mort de bash et quand bash lance un
   // processus qui se met à dormir alors il y a interblocage.
   cree_processus(bash, "bash");
 
+  enable_timer();
   idle();
 
   /* on ne doit jamais sortir de kernel_start */

@@ -24,10 +24,12 @@ __inline__ static void s_disable_it() {
   __asm__("csrc sstatus, %0" ::"i"(SSTATUS_SIE));
 }
 
+// Autorise le mode S à accèder aux pages du mode U
 __inline__ static void enable_sum() {
   __asm__("li t0, 0x40000\n"
           "csrs sstatus, t0");
 }
+// Interdit le mode S à accèder aux pages du mode U
 __inline__ static void disable_sum() {
   __asm__("li t0, 0x40000\n"
           "csrc sstatus, t0");

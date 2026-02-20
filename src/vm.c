@@ -9,7 +9,6 @@
 
 // TODO: Ne mapper le kernel qu'une seule fois pour idle et ensuite juste copier
 // les mappings pour les autres processus
-
 // TODO: Quand j'aurai implémenté le mode user: freewalk pour libérer les page
 // tables
 

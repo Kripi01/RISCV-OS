@@ -13,7 +13,6 @@
 enter_smode:
     # On passe au mode supervisor (pour l'instant, on est en mode machine).
     # Pour cela, on simule un retour d'interruption.
-
     # NOTE: on est obligé d'initialiser les registres du mode M (mtvec, les registres
     # pmp, mstatus, etc) maintenant car après, en mode S, on ne peut plus les modifier
 
@@ -32,26 +31,18 @@ enter_smode:
     csrs sie, t0 # on autorise toutes les interruptions pour le mode S
     li t1, 0x888
     csrs mie, t1 # on autorise toutes les interruptions pour le mode M
-    # on délègue les interruptions software, timer et externes (bits 2, 5 et 9) au
-    # supervisor
-    csrw mideleg, t0
+    csrw mideleg, t0 # on délègue les IRQ soft, timer et externes au mode S
 
-    # On délègue également les exceptions pour pouvoir gérer les page faults en mode S
-    # Docs: medeleg has a bit position allocated for every synchronous exception with
-    # the index of the bit position equal to the value returned in the mcause register
     # On délègue les exceptions de page faults (12, 13, 15) et de ecall du mode U (8)
+    # vers le mode S [ Docs: medeleg has a bit position allocated for every synchronous
+    # exception with the index of the bit position equal to the value returned in the
+    # mcause(=scause) register ]
     li t0, 0xb100
     csrw medeleg, t0
 
-    # On laisse la gestion des exceptions au mode M (notamment pour update le timer qui
-    # fait une IRQ au mode M, qui transmet ensuite l'IRQ au mode S, cf interrupt.c)
+    # Les autres exceptions restent gérées par le mode M (update timer, cf. interrupt.c)
     la t0, mon_traitant_m
     csrw mtvec, t0
-
-    # # on active le bit mstatus.SUM pour que le kernel puisse modifier la mémoire
-    # # des processus
-    # li t0, 0x40000
-    # csrs mstatus, t0
 
     # on active le bit sstatus.SPIE pour que après le mret, le bit mstatus.SIE soit à 1
     li t0, 0x20

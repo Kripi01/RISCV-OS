@@ -80,6 +80,7 @@ int ups() {
   UEXIT(exit_code);
 }
 
+// Affiche le drapeau de la France en arrière-plan.
 int france() {
   UFRANCE();
   UEXIT(0);

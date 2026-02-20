@@ -4,8 +4,6 @@
 #include "string.h"
 #include "syscalls.h"
 
-// TODO: réduire les commentaires
-
 extern int ups();
 extern int help();
 extern int f_true();
@@ -46,11 +44,11 @@ volatile int last_index_cmd = 0;
 
 volatile char command_str[MAX_LENGTH_COMMANDS];
 
-// Renvoie la commande tapée par l'utilisateur (une commande termine par un
-// '\n') en remplaçant le '\n' à la fin par un '\0' pour les strcmp ensuite,
-// puis vide le cmd_str_buf.
-// cmd_str_buf est l'adresse virtuelle (dans la zone user de bash) du buffer
-// pour les noms des commandes tapées.
+// Renvoie la commande tapée par l'utilisateur si disponible (une commande
+// termine par un '\n') et NULL sinon.
+// Remplace le '\n' à la fin par un '\0' pour les strcmp ensuite.
+// Vide également le cmd_str_buf qui est l'adresse virtuelle (dans la zone user
+// de bash) du buffer pour les noms des commandes tapées.
 // WARNING: Cette fonction doit être exécutée en mode S (car command_str est une
 // adresse kernel car modifié dans keyboard.c)
 char *get_command(char cmd_str_buf[MAX_LENGTH_COMMANDS]) {
@@ -75,9 +73,7 @@ char *get_command(char cmd_str_buf[MAX_LENGTH_COMMANDS]) {
 // Éxecute la commande cible (avec filiation ou non).
 // Renvoie 1 si la commande tapée par l'utilisateur correspond à la commande
 // cible (éventuellement avec ' &' à la fin) et 0 sinon.
-// WARNING: Pour éviter d'avoir à recopier le code de chaque processus en
-// mémoire user (de bash), cette fonction doit être exécutée en mode S (cf. le
-// syscall UEXEC_COMMAND)
+// WARNING: Cette fonction doit être exécutée en mode S
 int exec_command(char *cmd_str, char *target_cmd_str, int target_fct()) {
   size_t len_target = strlen(target_cmd_str);
 
