@@ -50,7 +50,7 @@ int segfault_test() {
 
 int help() {
   UPUTS("Commandes disponibles: help, ps, true, false, bash, clear, "
-        "segfault_test, proc1, proc2, proc3\n");
+        "segfault_test, proc1, proc2, proc3, france\n");
   UEXIT(0);
 }
 
@@ -78,4 +78,9 @@ int fg() {
 int ups() {
   int exit_code = UPS();
   UEXIT(exit_code);
+}
+
+int france() {
+  UFRANCE();
+  UEXIT(0);
 }

@@ -134,6 +134,11 @@ void s_trap_handler(uint64_t scause, uint64_t sie, uint64_t sip,
         disable_sum();
         break;
       }
+      case CODE_UFRANCE: {
+        printf("\f");
+        display_french_flag();
+        break;
+      }
       case CODE_UCREE_PROCESSUS: {
         // ucree_processus étant appelé par un processus user, l'adresse de la
         // fonction fournie est une adresse virtuelle (dans son adressage)

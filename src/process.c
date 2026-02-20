@@ -210,7 +210,7 @@ void waitpid(int64_t pid) {
 
 // Affiche l'état de chaque processus en haut à gauche de l'écran (élu == vert)
 void affiche_etats() {
-  const uint64_t len_buffer = 115; // pour ne pas écraser l'heure (max = 118)
+  const uint64_t len_buffer = 118; // pour ne pas écraser l'heure (max = 118)
 
   // On vide la ligne d'abord
   for (uint64_t i = 0; i < FONT_HEIGHT; i++) {

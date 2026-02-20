@@ -33,5 +33,6 @@ void efface_ecran();
 void defilement();
 void traite_car(char c);
 void display_top_right(const char *s, int len);
+void display_french_flag();
 
 #endif // __SCREEN_H__

@@ -1,6 +1,4 @@
-// Sources pour les macros variadiques:
-// https://gcc.gnu.org/onlinedocs/cpp/Variadic-Macros.html
-// https://en.wikipedia.org/wiki/Variadic_macro_in_the_C_preprocessor
+// Macros variadiques: https://gcc.gnu.org/onlinedocs/cpp/Variadic-Macros.html
 
 #ifndef __SYSCALLS_H__
 #define __SYSCALLS_H__
@@ -45,6 +43,7 @@
 #define UPUTS(str) SYSCALL(CODE_UPUTS, (uint64_t)(str), 0, 0, 0, 0, 0, 0)
 // WARNING: La liste de variables à printf ne doit pas dépasser 6 !!!!
 #define UPRINTF(fmt, ...) SYSCALL(CODE_UPRINTF, fmt, ##__VA_ARGS__)
+#define UFRANCE() SYSCALL(CODE_UFRANCE, 0, 0, 0, 0, 0, 0, 0)
 
 // Syscalls processus
 #define UCREE_PROCESSUS(proc_code, nom)                                        \

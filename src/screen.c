@@ -300,3 +300,18 @@ void display_top_right(const char *s, int len) {
     ecrit_car(0, DISPLAY_NB_COL - (len - i), s[i], WHITE, BLACK);
   }
 }
+
+// Affiche le drapeau français sur tout l'écran
+void display_french_flag() {
+  for (int y = 0; y < DISPLAY_HEIGHT; y++) {
+    for (int x = 0; x < DISPLAY_WIDTH; x++) {
+      if (x < DISPLAY_WIDTH / 3) {
+        pixel(x, y, BLUE);
+      } else if (x < 2 * DISPLAY_WIDTH / 3) {
+        pixel(x, y, WHITE);
+      } else {
+        pixel(x, y, RED);
+      }
+    }
+  }
+}

@@ -19,6 +19,7 @@ extern int clear();
 // extern int buddy_heap_test();
 // extern int buddy_heap_overflow_test();
 extern int segfault_test();
+extern int france();
 
 command_t commands[] = {
     {.nom = "help", .fonction = help},
@@ -36,6 +37,7 @@ command_t commands[] = {
     // {.nom = "buddy_heap_overflow_test", .fonction =
     // buddy_heap_overflow_test},
     {.nom = "segfault_test", .fonction = segfault_test},
+    {.nom = "france", .fonction = france},
 };
 
 #define NB_COMMANDS (int)(sizeof(commands) / sizeof(command_t))

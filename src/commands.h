@@ -12,5 +12,6 @@ int history();
 int clear();
 int fg();
 int ups();
+int france();
 
 #endif // __COMMANDS_H__

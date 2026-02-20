@@ -5,7 +5,6 @@
 #include "cpu.h"
 #include "interrupt.h"
 #include "keyboard.h"
-#include "platform.h"
 #include "pm.h"
 #include "process.h"
 #include "screen.h"
@@ -27,21 +26,6 @@ void console_putbytes(const char *s, int len) {
 /* ======================================================= */
 /* ===================== UTILITAIRES ===================== */
 /* ======================================================= */
-
-// Affiche le drapeau français sur tout l'écran
-void display_french_flag() {
-  for (int y = 0; y < DISPLAY_HEIGHT; y++) {
-    for (int x = 0; x < DISPLAY_WIDTH; x++) {
-      if (x < DISPLAY_WIDTH / 3) {
-        pixel(x, y, BLUE);
-      } else if (x < 2 * DISPLAY_WIDTH / 3) {
-        pixel(x, y, WHITE);
-      } else {
-        pixel(x, y, RED);
-      }
-    }
-  }
-}
 
 // idle est le seul processus à être exécuté en mode S (pour le wfi)
 void idle() {
