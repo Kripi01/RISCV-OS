@@ -131,13 +131,14 @@ void s_trap_handler(uint64_t scause, uint64_t sie, uint64_t sip,
         break;
       }
       case CODE_UCREE_PROCESSUS: {
-        int (*ps_code_va)() = (int (*)())tc->a0;
-        char *ps_nom = (char *)tc->a1;
+        int (*ps_code_va)(int, char **) = (int (*)(int, char **))tc->a0;
+        int argc = (int)tc->a1;
+        char **argv = (char **)tc->a2;
 
         // ucree_processus étant appelé par un processus user, l'adresse de la
         // fonction fournie est une adresse virtuelle, pareil pour nom. Donc SUM
         enable_sum();
-        int64_t pid = cree_processus(ps_code_va, ps_nom);
+        int64_t pid = cree_processus(ps_code_va, argc, argv);
         disable_sum();
 
         tc->a0 = pid; // on retourne le pid du processus créé
@@ -150,7 +151,7 @@ void s_trap_handler(uint64_t scause, uint64_t sie, uint64_t sip,
       }
       case CODE_UEXIT: {
         fin_processus();
-        // On renvoie a0 qui est l'exit code, donc tc->a0 ne change pas
+        // On renvoie l'exit code, donc tc->a0 ne change pas
         break;
       }
       case CODE_UPS: {
@@ -173,20 +174,21 @@ void s_trap_handler(uint64_t scause, uint64_t sie, uint64_t sip,
         tc->a0 = mon_pid();
         break;
       }
-      case CODE_UGET_COMMAND: {
-        char *va = (char *)tc->a0;
-        char *c = get_command(va);
-        tc->a0 = (uint64_t)c;
+      case CODE_UGET_RAW_ARGV: {
+        char *raw_argv = (char *)tc->a0;
+        tc->a0 = (uint64_t)get_raw_argv(raw_argv);
         break;
       }
       case CODE_UEXEC_COMMAND: {
-        char *cmd_str = (char *)tc->a0;
-        char *target_cmd_str = (char *)tc->a1;
-        int (*target_fct)() = (int (*)())tc->a2;
+        // NOTE: argv est un tableau de pointeurs (=char *[]=char **)
+        char **argv = (char **)tc->a0;
+        char *target_cmd = (char *)tc->a1;
+        uint64_t argc = tc->a2;
+        int (*target_fct)(int, char **) = (int (*)(int, char **))tc->a3;
 
         // on a potentiellement des adresses virtuelles donc bit SUM
         enable_sum();
-        tc->a0 = exec_command(cmd_str, target_cmd_str, target_fct);
+        tc->a0 = exec_command(argv, target_cmd, argc, target_fct);
         disable_sum();
         break;
       }

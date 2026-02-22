@@ -15,8 +15,9 @@ SECTIONS {
 	.text : {
 		*(.text.init)
     /* Bricolage: on place les tests avant le buddy heap allocator pour éviter le BUG
-     * (cf. tests.c) */
+     * (auipc) (cf. tests.c) */
     tests.o(.text .text.*)
+    shell.o(.text .text.*)
     buddy_heap.o(.text .text.*)
 
     *(.text) *(.text.*)

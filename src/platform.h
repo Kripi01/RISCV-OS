@@ -164,7 +164,7 @@
 #define CODE_UMON_PID 17
 
 // 2X pour les syscalls bash
-#define CODE_UGET_COMMAND 20
+#define CODE_UGET_RAW_ARGV 20
 #define CODE_UEXEC_COMMAND 21
 
 // UART

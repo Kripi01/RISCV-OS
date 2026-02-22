@@ -27,7 +27,7 @@ typedef struct {
 } process_t;
 
 void init_proc();
-int64_t cree_processus(int code(), char *nom);
+int64_t cree_processus(int code(int, char **), int argc, char **argv);
 void ordonnance();
 int64_t mon_pid();
 char *mon_nom();

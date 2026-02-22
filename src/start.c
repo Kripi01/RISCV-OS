@@ -49,7 +49,8 @@ void kernel_start() {
   // WARNING: il ne faut pas faire créer le premier bash par idle (avec waitpid)
   // car sinon, idle serait en attente de la mort de bash et quand bash lance un
   // processus qui se met à dormir alors il y a interblocage.
-  cree_processus(bash, "bash");
+  char *bash_name[] = {"bash"};
+  cree_processus(bash, 1, bash_name);
 
   enable_timer();
   idle();

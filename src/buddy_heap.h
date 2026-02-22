@@ -6,7 +6,7 @@
 #include <stdint.h>
 
 #define HEAP_START 0x45000000UL
-// Chaque processus a 4 pages allouées pour le tas
+// Chaque processus a 10 pages allouées pour le tas
 #define HEAP_SIZE (uint64_t)(10 * PAGESIZE)
 // TODO: faire un brk pour augmenter la taille du tas du processus
 #define HEAP_END (uint64_t)(HEAP_START + HEAP_SIZE)

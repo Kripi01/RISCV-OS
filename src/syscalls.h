@@ -40,9 +40,9 @@
 #define UFRANCE() SYSCALL(CODE_UFRANCE, 0, 0, 0, 0, 0, 0, 0)
 
 // Syscalls processus
-#define UCREE_PROCESSUS(proc_code, nom)                                        \
+#define UCREE_PROCESSUS(proc_code, argc, argv)                                 \
   (int64_t)SYSCALL(CODE_UCREE_PROCESSUS, (uint64_t)(proc_code),                \
-                   (uint64_t)(nom), 0, 0, 0, 0, 0)
+                   (uint64_t)(argc), (uint64_t)(argv), 0, 0, 0, 0)
 
 #define UWAITPID(pid) SYSCALL(CODE_UWAITPID, (uint64_t)(pid), 0, 0, 0, 0, 0, 0)
 
@@ -56,11 +56,11 @@
 #define UMON_PID() SYSCALL(CODE_UMON_PID, 0, 0, 0, 0, 0, 0, 0)
 
 // Syscalls bash
-#define UGET_COMMAND(va)                                                       \
-  (char *)SYSCALL(CODE_UGET_COMMAND, (uint64_t)(va), 0, 0, 0, 0, 0, 0)
+#define UGET_RAW_ARGV(raw_argv)                                                \
+  (char *)SYSCALL(CODE_UGET_RAW_ARGV, (uint64_t)(raw_argv), 0, 0, 0, 0, 0, 0)
 
-#define UEXEC_COMMAND(cmd, target_cmd, target_fct)                             \
-  (int)SYSCALL(CODE_UEXEC_COMMAND, (uint64_t)(cmd), (uint64_t)(target_cmd),    \
-               (uint64_t)(target_fct), 0, 0, 0, 0)
+#define UEXEC_COMMAND(argv, target_cmd, argc, target_fct)                      \
+  (int)SYSCALL(CODE_UEXEC_COMMAND, (uint64_t)(argv), (uint64_t)(target_cmd),   \
+               (uint64_t)(argc), (uint64_t)(target_fct), 0, 0, 0)
 
 #endif // __SYSCALLS_H__
