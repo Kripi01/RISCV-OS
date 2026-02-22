@@ -1,4 +1,5 @@
 #include "commands.h"
+#include "ramfs.h"
 #include "syscalls.h"
 #include <stddef.h>
 #include <stdint.h>
@@ -93,5 +94,26 @@ int echo(int argc, char *argv[]) {
   }
   UPUTC('\n');
 
+  UEXIT(0);
+}
+
+int umkdir(int argc, char *argv[]) {
+  for (int i = 1; i < argc; i++) {
+    file_t *new_file = UMKDIR(argv[i]);
+    if (new_file == NULL) {
+      UEXIT(1);
+    }
+  }
+
+  UEXIT(0);
+}
+
+int uls(int argc, char *argv[]) {
+  ULS();
+  UEXIT(0);
+}
+
+int upwd(int argc, char *argv[]) {
+  UPWD();
   UEXIT(0);
 }

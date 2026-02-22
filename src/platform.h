@@ -167,6 +167,11 @@
 #define CODE_UGET_RAW_ARGV 20
 #define CODE_UEXEC_COMMAND 21
 
+// 3X pour les syscalls du ramfs
+#define CODE_UMKDIR 30
+#define CODE_ULS 31
+#define CODE_UPWD 32
+
 // UART
 #define UART_BASE 0x10000000
 #define UART_CLOCK_FREQ 1843200

@@ -14,5 +14,8 @@ int fg(int argc, char **argv);
 int ups(int argc, char **argv);
 int france(int argc, char **argv);
 int echo(int argc, char **argv);
+int umkdir(int argc, char **argv);
+int uls(int argc, char **argv);
+int upwd(int argc, char **argv);
 
 #endif // __COMMANDS_H__

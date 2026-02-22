@@ -1,40 +1,63 @@
 // Sources: https://en.wikipedia.org/wiki/Buddy_memory_allocation
 // https://en.wikipedia.org/wiki/Free_list
 
-// Le tas est représenté par un tableau de free lists (HEAP_ARR). L'élément
-// d'indice i du tableau contient une free_list de blocs de taille 2^i (header
-// inclu). Chaque processus possède son propre tas, à l'adresse HEAP_START et le
-// tableau de free_list est stocké sur la page juste avant, à l'adresse
-// HEAP_ARR_START
+// ======================================= //
+// ============= TAS DU KERNEL =========== //
+// ==== VIA UN BUDDY MEMORY ALLOCATOR ==== //
+// ======================================= //
 
-#include "buddy_heap.h"
-#include "syscalls.h"
+// Le tas du kernel (utilisé notamment dans ramfs), donc toutes les fonctions
+// doivent être exécutées en mode S. Les adresses sont toutes physiques (le code
+// n'utilise pas l'allocateur de frames, la mémoire du tas est gérée finement
+// par le buddy allocator). Pour le tas des processus, regarder uheap.c
+
+// Le tas est représenté par un tableau de free lists. L'élément d'indice i du
+// tableau contient une free_list de blocs de taille 2^i (header inclu).
+
+#include "kheap.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-// Retourne la partie supérieure de log2(x) (= le plus haut bit à 1 de x)
-static uint8_t integer_log2(uint64_t x) {
-  if (x <= 1) {
-    return 0; // Par commodité, on pose log2(0) = 0
-  }
+extern char _kheap_start;
+const uintptr_t kheap_start = (uintptr_t)&_kheap_start;
+extern char _kheap_end;
+const uintptr_t kheap_end = (uintptr_t)&_kheap_end;
+static size_t kheap_size;
 
-  // On cherche le plus haut bit valant 1 dans x-1 (pour éviter le pb de la
-  // puissance de deux exacte)
-  x--;
-  uint8_t i = 0;
-  while (x != 0) {
-    x >>= 1;
-    i++;
-  }
+static uint8_t biggest_order;
+// On a au MAXIMUM 64 ordres (car adresses sur 64 bits)
+static heap_fl_t *kheap_arr[MAX_ORDER];
 
-  return i;
+// Initialise le tas: kheap_size, biggest_order, kheap_arr et les free lists
+void init_kheap() {
+  kheap_size = kheap_end - kheap_start;
+  memset(kheap_arr, 0, sizeof(kheap_arr)); // remise à zero des free lists
+  // On décompose heap_size en puissances de 2 et on crée un bloc pour chacune
+  uintptr_t kheap_ptr = kheap_start;
+  biggest_order = 0;
+  // NOTE: la boucle doit se faire à l'envers car un bloc de taille 2^k doit
+  // toujours commencer à une adresse multiple de 2^k (tous les bits d'indice
+  // inférieur à k sont à 0) pour que le XOR du buddy fonctionne.
+  for (int order = MAX_ORDER - 1; order >= (int)MIN_ORDER; order--) {
+    uint64_t bit = (kheap_size >> order) & 1;
+    if (bit == 1) {
+      if (order > biggest_order) {
+        biggest_order = order;
+      }
+      heap_fl_t block = {
+          .order = order, .is_free = 1, .prev = NULL, .next = NULL};
+      *(heap_fl_t *)kheap_ptr = block;
+      kheap_arr[order] = (heap_fl_t *)kheap_ptr;
+      kheap_ptr += (1ULL << order);
+    }
+  }
 }
 
 // Ajoute le block au début de la free list d'ordre order
-inline static void list_prepend(uint8_t order, buddy_free_list_t *block) {
+inline static void list_prepend(uint8_t order, heap_fl_t *block) {
   if (block == NULL) {
     return;
   }
@@ -42,15 +65,15 @@ inline static void list_prepend(uint8_t order, buddy_free_list_t *block) {
   block->is_free = 1;
   block->order = order;
   block->prev = NULL;
-  block->next = HEAP_ARR(order);
-  if (HEAP_ARR(order) != NULL) {
-    HEAP_ARR(order)->prev = block;
+  block->next = kheap_arr[order];
+  if (kheap_arr[order] != NULL) {
+    kheap_arr[order]->prev = block;
   }
-  HEAP_ARR(order) = block;
+  kheap_arr[order] = block;
 }
 
 // Extrait le block de la free list
-inline static void list_remove(uint8_t order, buddy_free_list_t *block) {
+inline static void list_remove(uint8_t order, heap_fl_t *block) {
   if (block == NULL) {
     return;
   }
@@ -63,12 +86,12 @@ inline static void list_remove(uint8_t order, buddy_free_list_t *block) {
     block->prev->next = block->next;
   } else {
     // Si le précédent est NULL alors le block est au début de la free list
-    HEAP_ARR(order) = block->next;
+    kheap_arr[order] = block->next;
   }
 }
 
 // Coupe un bloc libre en deux blocs d'ordre inférieur (utile pour malloc)
-static void split_free_block(uint8_t order, buddy_free_list_t *block) {
+static void split_free_block(uint8_t order, heap_fl_t *block) {
   if (order == 0) {
     return; // On ne peut pas split un bloc d'ordre 0
   }
@@ -80,27 +103,29 @@ static void split_free_block(uint8_t order, buddy_free_list_t *block) {
   uint8_t new_order = order - 1;
   uint64_t new_block_size = 1ULL << new_order;
 
-  buddy_free_list_t *new_block1 = block;
-  buddy_free_list_t *new_block2 =
-      (buddy_free_list_t *)((uintptr_t)new_block1 + new_block_size);
+  heap_fl_t *new_block1 = block;
+  heap_fl_t *new_block2 = (heap_fl_t *)((uintptr_t)new_block1 + new_block_size);
   list_prepend(new_order, new_block2);
   list_prepend(new_order, new_block1);
 }
 
 // Alloue un bloc de mémoire de taille memorySize octets dans le tas.
-void *buddy_malloc(size_t memorySize) {
+void *kmalloc(size_t memorySize) {
   uint8_t order = integer_log2(memorySize + FL_REDUCED_HEADER_SIZE);
 
-  if (order > MAX_ORDER) {
-    UPUTS("Error buddy_malloc: Allocation dynamique trop importante.\n");
+  if (order > biggest_order) {
+    printf("kmalloc error: Allocation dynamique trop importante.\n");
     return NULL;
   }
 
+  if (order < MIN_ORDER) {
+    order = MIN_ORDER;
+  }
+
   // On cherche un bloc de taille 2^order
-  buddy_free_list_t *free_bloc = HEAP_ARR(order);
+  heap_fl_t *free_bloc = kheap_arr[order];
   if (free_bloc != NULL) { // on prend le premier bloc libre
     // on supprime le bloc de la free list
-
     list_remove(order, free_bloc);
 
     // On enlève le header réduit, i.e. le is_free et l'order
@@ -111,23 +136,22 @@ void *buddy_malloc(size_t memorySize) {
   uint8_t k = order + 1;
   while (k != order) {
     // On prend le premier bloc libre d'ordre strictement supérieur à order
-    while (k <= MAX_ORDER && HEAP_ARR(k) == NULL) {
+    while (k <= biggest_order && kheap_arr[k] == NULL) {
       k++;
     }
 
-    if (k > MAX_ORDER) {
-      UPUTS("Error buddy_malloc: Allocation dynamique trop importante.\n");
+    if (k > biggest_order) {
       return NULL; // le tas est plein
     }
 
     // On splitte ce bloc
-    split_free_block(k, HEAP_ARR(k));
+    split_free_block(k, kheap_arr[k]);
     k--; // l'ordre le plus proche de order a diminué de 1 car on a créé de
     // nouveaux blocs d'ordre inférieur
   }
 
   // On retourne le bloc (sans header) après l'avoir retiré de la free list
-  buddy_free_list_t *block_found = HEAP_ARR(order);
+  heap_fl_t *block_found = kheap_arr[order];
   void *allocated_block =
       (void *)((uintptr_t)block_found + FL_REDUCED_HEADER_SIZE);
   list_remove(order, block_found);
@@ -135,20 +159,19 @@ void *buddy_malloc(size_t memorySize) {
 }
 
 // Libère le pointeur alloué dynamiquement sur le tas
-void buddy_free(void *ptr) {
+void kfree(void *ptr) {
   if (ptr == NULL) {
-    UPUTS("Error buddy_free: Tentative de free NULL\n");
+    printf("kfree error: Tentative de free NULL\n");
     return;
   }
 
-  if ((uintptr_t)ptr < HEAP_START || (uintptr_t)ptr > HEAP_END) {
-    UPUTS("Error buddy_free: Tentative de free un pointeur qui n'est pas sur "
-          "le tas\n");
+  if ((uintptr_t)ptr < kheap_start || (uintptr_t)ptr > kheap_end) {
+    printf("kfree error: Tentative de free un pointeur qui n'est pas sur "
+           "le tas\n");
     return;
   }
 
-  buddy_free_list_t *block =
-      (buddy_free_list_t *)((uintptr_t)ptr - FL_REDUCED_HEADER_SIZE);
+  heap_fl_t *block = (heap_fl_t *)((uintptr_t)ptr - FL_REDUCED_HEADER_SIZE);
   if (block->is_free == 1) {
     return;
   }
@@ -158,13 +181,13 @@ void buddy_free(void *ptr) {
   // Si la fusion est impossible dès le début, le premier 'if' dans le while
   // fera un 'break' et on ira directement à list_prepend à la fin (c'est le cas
   // où on ne peut pas coalescer).
-  while (order < MAX_ORDER) {
+  while (order < biggest_order) {
     // La formule du buddy fonctionne si les adresses du tas commencent à 0
-    uintptr_t buddy_addr = HEAP_START + (((uintptr_t)block - HEAP_START) ^
-                                         (uintptr_t)(1ULL << order));
-    buddy_free_list_t *buddy = (buddy_free_list_t *)buddy_addr;
+    uintptr_t buddy_addr = kheap_start + (((uintptr_t)block - kheap_start) ^
+                                          (uintptr_t)(1ULL << order));
+    heap_fl_t *buddy = (heap_fl_t *)buddy_addr;
 
-    if (buddy_addr >= HEAP_END || buddy->is_free == 0 ||
+    if (buddy_addr >= kheap_end || buddy->is_free == 0 ||
         buddy->order != order) {
       break;
     }
@@ -187,9 +210,9 @@ void buddy_free(void *ptr) {
 
 // Alloue un bloc de mémoire dans le tas, de taille elementCount éléments de
 // taille elementSize, et initialisé à 0.
-void *buddy_calloc(size_t elementCount, size_t elementSize) {
+void *kcalloc(size_t elementCount, size_t elementSize) {
   size_t total_size = elementCount * elementSize;
-  void *ptr = buddy_malloc(total_size);
+  void *ptr = kmalloc(total_size);
   if (ptr == NULL) {
     return NULL;
   }
@@ -201,20 +224,19 @@ void *buddy_calloc(size_t elementCount, size_t elementSize) {
 // Réalloue le bloc de mémoire à l'adresse pointer, de taille memorySize dans le
 // tas, en l'agrandissant ou le rétressissant. Retourne l'adresse du nouveau
 // bloc alloué
-void *buddy_realloc(void *pointer, size_t memorySize) {
+void *krealloc(void *pointer, size_t memorySize) {
   if (pointer == NULL) {
     // C'est un malloc classique
-    return buddy_malloc(memorySize);
+    return kmalloc(memorySize);
   }
 
   if (memorySize == 0) {
     // C'est un free
-    buddy_free(pointer);
+    kfree(pointer);
     return NULL;
   }
 
-  buddy_free_list_t *block =
-      (buddy_free_list_t *)((uintptr_t)pointer - FL_REDUCED_HEADER_SIZE);
+  heap_fl_t *block = (heap_fl_t *)((uintptr_t)pointer - FL_REDUCED_HEADER_SIZE);
   uint8_t order = block->order;
   size_t cur_size = (1ULL << order) - FL_REDUCED_HEADER_SIZE;
 
@@ -227,9 +249,9 @@ void *buddy_realloc(void *pointer, size_t memorySize) {
   // PERF: ce n'est pas optimal car alloue un tout nouveau bloc au lieu
   // d'essayer de coalescer avec le buddy (s'il est libre), mais c'est plus
   // compliqué à coder)
-  void *new_ptr = buddy_malloc(memorySize);
+  void *new_ptr = kmalloc(memorySize);
   if (new_ptr == NULL) {
-    UPUTS("buddy_realloc Error\n");
+    printf("realloc error\n");
     return NULL;
   }
 
@@ -238,7 +260,7 @@ void *buddy_realloc(void *pointer, size_t memorySize) {
   size_t new_size = (memorySize < cur_size) ? memorySize : cur_size;
   memcpy(new_ptr, pointer, new_size);
 
-  buddy_free(pointer);
+  kfree(pointer);
 
   return new_ptr;
 }

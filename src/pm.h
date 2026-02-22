@@ -5,7 +5,7 @@
 
 #define FRAMESIZE 4096 // 4 kilo bytes
 
-// On représente les frames libres par une free list (cf. buddy_heap.h)
+// On représente les frames libres par une free list
 typedef struct free_list_s {
   struct free_list_s *next;
 } free_list_t;

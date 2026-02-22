@@ -1,7 +1,6 @@
 #ifndef __PROCESS_H__
 #define __PROCESS_H__
 
-#include "buddy_heap.h"
 #include <stdint.h>
 
 #define MAX_CHAR_NAME 100
@@ -38,7 +37,7 @@ void affiche_etats();
 void proc_launcher();
 int ps();
 
-void buddy_init_heap();
+void init_uheap();
 
 extern void idle();
 extern void ctx_sw(uint64_t *contexte1, uint64_t *contexte2);

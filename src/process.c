@@ -6,12 +6,12 @@
 // d'ordonnacement (exemple: idle a une prorité de 0 et bash une priorité de 5)
 
 #include "process.h"
-#include "buddy_heap.h"
 #include "cpu.h"
 #include "interrupt.h"
 #include "platform.h"
 #include "pm.h"
 #include "screen.h"
+#include "uheap.h"
 #include "vm.h"
 #include <stddef.h>
 #include <stdint.h>
@@ -292,7 +292,7 @@ void affiche_etats() {
 // WARNING: proc_launcher doit être appelé avec le satp du processus fils (le
 // changement de satp est fait dans ctx_sw)
 void proc_launcher() {
-  buddy_init_heap();
+  init_uheap();
 
   // On passe en mode user (après le sret)
   __asm__("csrc sstatus, %0" ::"r"(SSTATUS_SPP));  // mode user
@@ -358,7 +358,7 @@ static void allocate_heap_frames() {
 
 // Initialise le tas du processus (en mémoire user): HEAP_ARR et les free lists.
 // WARNING: Cette fonction doit être exécutée en mode S
-void buddy_init_heap() {
+void init_uheap() {
   enable_sum();
   allocate_heap_frames();
 
@@ -370,11 +370,10 @@ void buddy_init_heap() {
   for (int order = MAX_ORDER - 1; order >= (int)MIN_ORDER; order--) {
     uint64_t bit = (HEAP_SIZE >> order) & 1;
     if (bit != 0) {
-      buddy_free_list_t block = {
+      heap_fl_t block = {
           .order = order, .is_free = 1, .prev = NULL, .next = NULL};
-      *(buddy_free_list_t *)heap_ptr = block;
-      ((buddy_free_list_t **)HEAP_ARR_START)[order] =
-          (buddy_free_list_t *)heap_ptr;
+      *(heap_fl_t *)heap_ptr = block;
+      ((heap_fl_t **)HEAP_ARR_START)[order] = (heap_fl_t *)heap_ptr;
       heap_ptr += (1ULL << order);
     }
   }

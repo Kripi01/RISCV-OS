@@ -23,6 +23,7 @@
 #include "keyboard.h"
 #include "platform.h"
 #include "process.h"
+#include "ramfs.h"
 #include "screen.h"
 #include "shell.h"
 #include <stdint.h>
@@ -190,6 +191,22 @@ void s_trap_handler(uint64_t scause, uint64_t sie, uint64_t sip,
         enable_sum();
         tc->a0 = exec_command(argv, target_cmd, argc, target_fct);
         disable_sum();
+        break;
+      }
+      case CODE_UMKDIR: {
+        char *name = (char *)tc->a0;
+        enable_sum(); // car name est potentiellement une va
+        // WARNING: mkdir renvoie une pa donc non utilisable par un proc user
+        tc->a0 = (uint64_t)mkdir(name);
+        disable_sum();
+        break;
+      }
+      case CODE_ULS: {
+        ls();
+        break;
+      }
+      case CODE_UPWD: {
+        pwd();
         break;
       }
       default:

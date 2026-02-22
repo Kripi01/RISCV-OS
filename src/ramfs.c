@@ -1,0 +1,86 @@
+#include "ramfs.h"
+#include "kheap.h"
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+
+// NOTE: Un dossier est un fichier.
+
+static file_t *cur_file = NULL;
+
+// Initialise le fichier racine '/' sur le tas kernel et place le pointeur de
+// fichiers cur_file sur '/'. Le tas kernel doit donc déjà avoir été initialisé.
+void init_ramfs() {
+  // Le header du fichier (file_t) est stocké sur le tas kernel (car il doit
+  // être accessible depuis n'importe quel processus à partir d'un syscall en
+  // mode S), ainsi que ses champs pointeurs (nom et children). Donc les
+  // adresses des headers des fichiers sont physiques.
+  char *pa_name = (char *)kmalloc(2 * sizeof(char));
+  if (pa_name == NULL) {
+    printf("init_ramfs error.\n");
+    return;
+  }
+  pa_name[0] = '/';
+  pa_name[1] = '\0';
+
+  file_t *pa_root = kmalloc(sizeof(file_t));
+  if (pa_root == NULL) {
+    printf("init_ramfs error.\n");
+    return;
+  }
+  file_t root = {.name = pa_name, .nb_children = 0, .children = NULL};
+  *(file_t *)pa_root = root;
+
+  cur_file = (file_t *)pa_root;
+}
+
+// Ajoute le fichier nommé name (=va) aux enfants du fichier courant et renvoie
+// le fichier nouvellement créé. S'il y a une erreur, renvoie NULL et ne modifie
+// pas l'arborescence.
+// WARNING: si mkdir est lancé depuis un processus alors name est une va. Il
+// faut donc s'assurer que les mappings user sont transmis au mode S via le SUM
+file_t *mkdir(char *name) {
+  char *pa_name = kmalloc(FILENAME_MAXSIZE * sizeof(char));
+  if (pa_name == NULL) {
+    printf("mkdir error.\n");
+    return NULL;
+  }
+  // on copie name (potentiellement va) sur le tas (pa)
+  strncpy(pa_name, name, FILENAME_MAXSIZE);
+
+  file_t *pa_f = kmalloc(sizeof(file_t));
+  if (pa_f == NULL) {
+    printf("mkdir error.\n");
+    return NULL;
+  }
+  file_t f = {.name = pa_name, .nb_children = 0, .children = NULL};
+  *(file_t *)pa_f = f;
+
+  // On ajoute le nouveau fichier aux enfants du fichier courant
+  int new_nbc = cur_file->nb_children + 1;
+  // On alloue le fils sur le tas du kernel (pour avoir un tableau contigu)
+  file_t **new_children =
+      krealloc(cur_file->children, new_nbc * sizeof(file_t *));
+  if (new_children == NULL) {
+    printf("mkdir error: la créeation du fichier n'a pas eu lieue et rien n'a "
+           "été modifié.\n");
+    return NULL;
+  }
+  cur_file->children = new_children;
+
+  cur_file->children[new_nbc - 1] = pa_f;
+  cur_file->nb_children = new_nbc;
+
+  return pa_f;
+}
+
+// Affiche la liste des enfants du fichier courant.
+void ls() {
+  for (int i = 0; i < cur_file->nb_children; i++) {
+    printf("%s ", cur_file->children[i]->name);
+  }
+  printf("\n");
+}
+
+void pwd() { printf("%s\n", cur_file->name); }

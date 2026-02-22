@@ -1,12 +1,15 @@
 #include "shell.h"
-#include "buddy_heap.h"
 #include "cpu.h"
 #include "process.h"
 #include "string.h"
 #include "syscalls.h"
+#include "uheap.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+
+// TODO: faire des variables d'environnement ($?, PWD, etc)
+// TODO: mettre le dossier courant dans le prompt
 
 extern int ups(int argc, char **argv);
 extern int help(int argc, char **argv);
@@ -18,11 +21,14 @@ extern int proc3(int argc, char **argv);
 extern int history(int argc, char **argv);
 extern int fg(int argc, char **argv);
 extern int clear(int argc, char **argv);
-extern int buddy_heap_test(int argc, char **argv);
-extern int buddy_heap_overflow_test(int argc, char **argv);
+extern int uheap_test(int argc, char **argv);
+extern int uheap_overflow_test(int argc, char **argv);
 extern int segfault_test(int argc, char **argv);
 extern int france(int argc, char **argv);
 extern int echo(int argc, char **argv);
+extern int umkdir(int argc, char **argv);
+extern int uls(int argc, char **argv);
+extern int upwd(int argc, char **argv);
 
 command_t commands[] = {
     {.nom = "help", .fonction = help},
@@ -36,11 +42,14 @@ command_t commands[] = {
     {.nom = "bash", .fonction = bash},
     {.nom = "fg", .fonction = fg},
     {.nom = "clear", .fonction = clear},
-    {.nom = "buddy_heap_test", .fonction = buddy_heap_test},
-    {.nom = "buddy_heap_overflow_test", .fonction = buddy_heap_overflow_test},
+    {.nom = "uheap_test", .fonction = uheap_test},
+    {.nom = "uheap_overflow_test", .fonction = uheap_overflow_test},
     {.nom = "segfault_test", .fonction = segfault_test},
     {.nom = "france", .fonction = france},
     {.nom = "echo", .fonction = echo},
+    {.nom = "mkdir", .fonction = umkdir},
+    {.nom = "ls", .fonction = uls},
+    {.nom = "pwd", .fonction = upwd},
 };
 
 #define NB_COMMANDS (int)(sizeof(commands) / sizeof(command_t))
@@ -79,7 +88,7 @@ char *get_raw_argv(char *raw_argv) {
 // de la commande inclu).
 // WARNING: Doit être exécutée en mode U (car on utilise le tas de bash).
 static char **parse_arguments(char *raw_argv, int *argc) {
-  char **argv = buddy_malloc(MAX_NB_ARGS * sizeof(char *));
+  char **argv = umalloc(MAX_NB_ARGS * sizeof(char *));
   if (argv == NULL) {
     UPUTS("bash error: pas assez de place sur le tas.\n");
     return NULL;
@@ -94,7 +103,7 @@ static char **parse_arguments(char *raw_argv, int *argc) {
   while (1) {
     if (c == ' ' || c == '\0') {
       raw_argv[raw_i] = '\0';
-      if ((argv[local_argc] = buddy_malloc(i * sizeof(char))) == NULL) {
+      if ((argv[local_argc] = umalloc(i * sizeof(char))) == NULL) {
         UPUTS("bash error: pas assez de place sur le tas.\n");
         return NULL;
       };

@@ -1,11 +1,15 @@
 // TODO: Dans tous les fichiers, utiliser au maximum des static pour
 // l'encapsulation
+// TODO: utiliser des préfixes sys_... pour les fonctions devant être utilisées
+// en mode S et rien pour les fonctions pouvant être exécutées en mode U.
 
 #include "cpu.h"
 #include "interrupt.h"
 #include "keyboard.h"
+#include "kheap.h"
 #include "pm.h"
 #include "process.h"
+#include "ramfs.h"
 #include "screen.h"
 #include "shell.h"
 #include "uart.h"
@@ -44,6 +48,8 @@ void kernel_start() {
   init_ecran();
 
   init_frames();
+  init_kheap();
+  init_ramfs();
 
   init_proc(); // crée idle et l'élit.
   // WARNING: il ne faut pas faire créer le premier bash par idle (avec waitpid)

@@ -1,0 +1,233 @@
+// Sources: https://en.wikipedia.org/wiki/Buddy_memory_allocation
+// https://en.wikipedia.org/wiki/Free_list
+
+// ======================================= //
+// ======== TAS DES PROCESSUS USER ======= //
+// ==== VIA UN BUDDY MEMORY ALLOCATOR ==== //
+// ======================================= //
+
+// Le tas est représenté par un tableau de free lists (HEAP_ARR). L'élément
+// d'indice i du tableau contient une free_list de blocs de taille 2^i (header
+// inclu). Chaque processus possède son propre tas, à l'adresse HEAP_START et le
+// tableau de free_list est stocké sur la page juste avant, à l'adresse
+// HEAP_ARR_START
+
+#include "uheap.h"
+#include "heap.h"
+#include "syscalls.h"
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+// Ajoute le block au début de la free list d'ordre order
+inline static void list_prepend(uint8_t order, heap_fl_t *block) {
+  if (block == NULL) {
+    return;
+  }
+
+  block->is_free = 1;
+  block->order = order;
+  block->prev = NULL;
+  block->next = HEAP_ARR(order);
+  if (HEAP_ARR(order) != NULL) {
+    HEAP_ARR(order)->prev = block;
+  }
+  HEAP_ARR(order) = block;
+}
+
+// Extrait le block de la free list
+inline static void list_remove(uint8_t order, heap_fl_t *block) {
+  if (block == NULL) {
+    return;
+  }
+
+  block->is_free = 0;
+  if (block->next != NULL) {
+    block->next->prev = block->prev;
+  }
+  if (block->prev != NULL) {
+    block->prev->next = block->next;
+  } else {
+    // Si le précédent est NULL alors le block est au début de la free list
+    HEAP_ARR(order) = block->next;
+  }
+}
+
+// Coupe un bloc libre en deux blocs d'ordre inférieur (utile pour malloc)
+static void split_free_block(uint8_t order, heap_fl_t *block) {
+  if (order == 0) {
+    return; // On ne peut pas split un bloc d'ordre 0
+  }
+
+  // On supprime le bloc dans la free list originale
+  list_remove(order, block);
+
+  // Puis on ajoute deux blocs à la free list d'ordre inférieur
+  uint8_t new_order = order - 1;
+  uint64_t new_block_size = 1ULL << new_order;
+
+  heap_fl_t *new_block1 = block;
+  heap_fl_t *new_block2 = (heap_fl_t *)((uintptr_t)new_block1 + new_block_size);
+  list_prepend(new_order, new_block2);
+  list_prepend(new_order, new_block1);
+}
+
+// Alloue un bloc de mémoire de taille memorySize octets dans le tas.
+void *umalloc(size_t memorySize) {
+  uint8_t order = integer_log2(memorySize + FL_REDUCED_HEADER_SIZE);
+
+  if (order > MAX_ORDER) {
+    UPUTS("umalloc arror: Allocation dynamique trop importante.\n");
+    return NULL;
+  }
+
+  if (order < MIN_ORDER) {
+    order = MIN_ORDER;
+  }
+
+  // On cherche un bloc de taille 2^order
+  heap_fl_t *free_bloc = HEAP_ARR(order);
+  if (free_bloc != NULL) { // on prend le premier bloc libre
+    // on supprime le bloc de la free list
+
+    list_remove(order, free_bloc);
+
+    // On enlève le header réduit, i.e. le is_free et l'order
+    return (void *)((uintptr_t)free_bloc + FL_REDUCED_HEADER_SIZE);
+  }
+
+  // Si on ne l'a pas trouvé alors on le crée en splittant des blocs plus grands
+  uint8_t k = order + 1;
+  while (k != order) {
+    // On prend le premier bloc libre d'ordre strictement supérieur à order
+    while (k <= MAX_ORDER && HEAP_ARR(k) == NULL) {
+      k++;
+    }
+
+    if (k > MAX_ORDER) {
+      UPUTS("umalloc error: Allocation dynamique trop importante.\n");
+      return NULL; // le tas est plein
+    }
+
+    // On splitte ce bloc
+    split_free_block(k, HEAP_ARR(k));
+    k--; // l'ordre le plus proche de order a diminué de 1 car on a créé de
+    // nouveaux blocs d'ordre inférieur
+  }
+
+  // On retourne le bloc (sans header) après l'avoir retiré de la free list
+  heap_fl_t *block_found = HEAP_ARR(order);
+  void *allocated_block =
+      (void *)((uintptr_t)block_found + FL_REDUCED_HEADER_SIZE);
+  list_remove(order, block_found);
+  return allocated_block;
+}
+
+// Libère le pointeur alloué dynamiquement sur le tas
+void ufree(void *ptr) {
+  if (ptr == NULL) {
+    UPUTS("ufree error: Tentative de free NULL\n");
+    return;
+  }
+
+  if ((uintptr_t)ptr < HEAP_START || (uintptr_t)ptr > HEAP_END) {
+    UPUTS("ufree error: Tentative de free un pointeur qui n'est pas sur "
+          "le tas\n");
+    return;
+  }
+
+  heap_fl_t *block = (heap_fl_t *)((uintptr_t)ptr - FL_REDUCED_HEADER_SIZE);
+  if (block->is_free == 1) {
+    return;
+  }
+  block->is_free = 1;
+
+  uint8_t order = block->order;
+  // Si la fusion est impossible dès le début, le premier 'if' dans le while
+  // fera un 'break' et on ira directement à list_prepend à la fin (c'est le cas
+  // où on ne peut pas coalescer).
+  while (order < MAX_ORDER) {
+    // La formule du buddy fonctionne si les adresses du tas commencent à 0
+    uintptr_t buddy_addr = HEAP_START + (((uintptr_t)block - HEAP_START) ^
+                                         (uintptr_t)(1ULL << order));
+    heap_fl_t *buddy = (heap_fl_t *)buddy_addr;
+
+    if (buddy_addr >= HEAP_END || buddy->is_free == 0 ||
+        buddy->order != order) {
+      break;
+    }
+
+    // On retire le buddy (fusion intermédiaire)
+    list_remove(order, buddy);
+
+    // Si le buddy est à gauche alors c'est lui qui devient le nouveau gros bloc
+    if (buddy_addr < (uintptr_t)block) {
+      block = buddy;
+    }
+
+    // On finalise la fusion intermédiaire
+    order++;
+    block->order = order;
+  }
+
+  list_prepend(order, block);
+}
+
+// Alloue un bloc de mémoire dans le tas, de taille elementCount éléments de
+// taille elementSize, et initialisé à 0.
+void *ucalloc(size_t elementCount, size_t elementSize) {
+  size_t total_size = elementCount * elementSize;
+  void *ptr = umalloc(total_size);
+  if (ptr == NULL) {
+    return NULL;
+  }
+
+  memset(ptr, 0, total_size);
+  return ptr;
+}
+
+// Réalloue le bloc de mémoire à l'adresse pointer, de taille memorySize dans le
+// tas, en l'agrandissant ou le rétressissant. Retourne l'adresse du nouveau
+// bloc alloué
+void *urealloc(void *pointer, size_t memorySize) {
+  if (pointer == NULL) {
+    // C'est un malloc classique
+    return umalloc(memorySize);
+  }
+
+  if (memorySize == 0) {
+    // C'est un free
+    ufree(pointer);
+    return NULL;
+  }
+
+  heap_fl_t *block = (heap_fl_t *)((uintptr_t)pointer - FL_REDUCED_HEADER_SIZE);
+  uint8_t order = block->order;
+  size_t cur_size = (1ULL << order) - FL_REDUCED_HEADER_SIZE;
+
+  if (memorySize <= cur_size) {
+    // Si la nouvelle taille rentre dans le bloc actuel alors on ne fait rien
+    return pointer;
+  }
+
+  // On alloue un nouveau bloc
+  // PERF: ce n'est pas optimal car alloue un tout nouveau bloc au lieu
+  // d'essayer de coalescer avec le buddy (s'il est libre), mais c'est plus
+  // compliqué à coder)
+  void *new_ptr = umalloc(memorySize);
+  if (new_ptr == NULL) {
+    UPUTS("urealloc error\n");
+    return NULL;
+  }
+
+  // On copie les données de l'ancien vers le nouveau
+  // Si le realloc veut tronquer les données alors on tronque
+  size_t new_size = (memorySize < cur_size) ? memorySize : cur_size;
+  memcpy(new_ptr, pointer, new_size);
+
+  ufree(pointer);
+
+  return new_ptr;
+}

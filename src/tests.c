@@ -1,22 +1,22 @@
 #include "tests.h"
-#include "buddy_heap.h"
 #include "syscalls.h"
+#include "uheap.h"
 #include <stdio.h>
 
 /* ====================================== */
 /* ==== BUDDY MEMORY ALLOCATION TEST ==== */
 /* ====================================== */
 
-// BUG: adresses relatives (auipc) donc l'adresse de buddy_malloc est avant
-// buddy_heap_test, tellement avant qu'elle est avant 0x40000000
+// BUG: adresses relatives (auipc) donc l'adresse de umalloc est avant
+// uheap_test, tellement avant qu'elle est avant 0x40000000
 // FIX: on la force à être après dans le linker script (mais c'est vraiment du
 // bricolage)
-int buddy_heap_test() {
+int uheap_test() {
   int N = 10;
 
-  int **mat = buddy_malloc(N * sizeof(int *));
+  int **mat = umalloc(N * sizeof(int *));
   for (int i = 0; i < N; i++) {
-    mat[i] = buddy_malloc(N * sizeof(int));
+    mat[i] = umalloc(N * sizeof(int));
     for (int j = 0; j < N; j++) {
       mat[i][j] = i * N + j;
     }
@@ -31,16 +31,16 @@ int buddy_heap_test() {
 
   // Puis on free la matrice
   for (int i = 0; i < N; i++) {
-    buddy_free(mat[i]);
+    ufree(mat[i]);
   }
-  buddy_free(mat);
+  ufree(mat);
 
   UEXIT(0);
 }
 
-int buddy_heap_overflow_test() {
+int uheap_overflow_test() {
   int size = 128000000; // overflow! (la ram fait 128Mo)
-  char *tab = buddy_malloc(size * sizeof(char));
+  char *tab = umalloc(size * sizeof(char));
   if (tab == NULL) {
     UEXIT(1);
   }
@@ -52,7 +52,7 @@ int buddy_heap_overflow_test() {
     tab[i] = 'b';
   }
 
-  buddy_free(tab);
+  ufree(tab);
 
   UEXIT(0);
 }

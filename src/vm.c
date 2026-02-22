@@ -51,12 +51,15 @@ static void devices_mapping(pagetable_t root) {
 
 // Mappe les adresses de la RAM en 1:1
 static void identity_mapping(pagetable_t root) {
-  // On mappe le kernel
+  // On mappe le kernel et le tas du kernel
   for (uintptr_t addr = kstart; addr < kend; addr += PAGESIZE) {
     map_page(root, addr, addr, PTE_RWXV);
   }
 
-  // Le reste de la RAM (le tas par exemple) ne fait pas partie du kernel.
+  // Le reste de la RAM (les tas user par exemple) ne fait pas partie du kernel.
+  // En fait toute la RAM est mappée en 1:1 mais elle n'est pas accessible au
+  // mode user, donc ce n'est pas un problème (seul la mémoire du processus
+  // définie à sa création possède le bit U).
   for (uintptr_t addr = kend; addr < memory_end; addr += PAGESIZE) {
     map_page(root, addr, addr, PTE_RWXV);
   }

@@ -63,4 +63,10 @@
   (int)SYSCALL(CODE_UEXEC_COMMAND, (uint64_t)(argv), (uint64_t)(target_cmd),   \
                (uint64_t)(argc), (uint64_t)(target_fct), 0, 0, 0)
 
+// Syscalls RAMFS
+#define UMKDIR(name)                                                           \
+  (file_t *)SYSCALL(CODE_UMKDIR, (uint64_t)(name), 0, 0, 0, 0, 0, 0)
+#define ULS() SYSCALL(CODE_ULS, 0, 0, 0, 0, 0, 0, 0)
+#define UPWD() SYSCALL(CODE_UPWD, 0, 0, 0, 0, 0, 0, 0)
+
 #endif // __SYSCALLS_H__
