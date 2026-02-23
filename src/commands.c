@@ -117,3 +117,20 @@ int upwd(int argc, char *argv[]) {
   UPWD();
   UEXIT(0);
 }
+
+int urm(int argc, char *argv[]) {
+  if (argc <= 1) {
+    UPUTS("rm: il faut donner au moins un nom de fichier.\n");
+    UEXIT(1);
+  }
+
+  // Si un seul rm échoue alors le code d'erreur est 1 MAIS on continue
+  // d'effacer les autres
+  int exit_code = 1;
+  for (int i = 1; i < argc; i++) {
+    int cur_exit_code = URM(argv[i]);
+    exit_code &= cur_exit_code;
+  }
+
+  UEXIT(exit_code);
+}

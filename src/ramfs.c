@@ -40,6 +40,7 @@ void init_ramfs() {
 // pas l'arborescence.
 // WARNING: si mkdir est lancé depuis un processus alors name est une va. Il
 // faut donc s'assurer que les mappings user sont transmis au mode S via le SUM
+// TODO: Écraser deux fichiers de même nom ?
 file_t *mkdir(char *name) {
   char *pa_name = kmalloc(FILENAME_MAXSIZE * sizeof(char));
   if (pa_name == NULL) {
@@ -84,3 +85,28 @@ void ls() {
 }
 
 void pwd() { printf("%s\n", cur_file->name); }
+
+// Supprime le fichier de nom "name" s'il exsite.
+int rm(char *name) {
+  for (int i = 0; i < cur_file->nb_children; i++) {
+    if (strcmp(cur_file->children[i]->name, name) == 0) {
+      if (cur_file->children[i]->children != NULL) {
+        // TODO:
+        printf("rm: suppression récursive pas encore prise en charge.\n");
+        return 1;
+      }
+
+      kfree(cur_file->children[i]); // on libère le fichier
+
+      // On décale tous les enfants du fichier courant pour combler le trou
+      size_t size = (cur_file->nb_children - i - 1) * sizeof(file_t *);
+      memmove(cur_file->children + i, cur_file->children + i + 1, size);
+      cur_file->nb_children--;
+
+      return 0;
+    }
+  }
+
+  printf("rm error: le fichier %s n'existe pas.\n", name);
+  return 1;
+}

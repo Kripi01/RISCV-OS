@@ -68,5 +68,6 @@
   (file_t *)SYSCALL(CODE_UMKDIR, (uint64_t)(name), 0, 0, 0, 0, 0, 0)
 #define ULS() SYSCALL(CODE_ULS, 0, 0, 0, 0, 0, 0, 0)
 #define UPWD() SYSCALL(CODE_UPWD, 0, 0, 0, 0, 0, 0, 0)
+#define URM(name) (int)SYSCALL(CODE_URM, (uint64_t)(name), 0, 0, 0, 0, 0, 0)
 
 #endif // __SYSCALLS_H__

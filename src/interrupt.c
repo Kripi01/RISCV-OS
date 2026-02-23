@@ -209,6 +209,13 @@ void s_trap_handler(uint64_t scause, uint64_t sie, uint64_t sip,
         pwd();
         break;
       }
+      case CODE_URM: {
+        char *name = (char *)tc->a0;
+        enable_sum();
+        tc->a0 = rm(name);
+        disable_sum();
+        break;
+      }
       default:
         break;
       }

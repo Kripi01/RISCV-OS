@@ -171,6 +171,7 @@
 #define CODE_UMKDIR 30
 #define CODE_ULS 31
 #define CODE_UPWD 32
+#define CODE_URM 33
 
 // UART
 #define UART_BASE 0x10000000

@@ -16,5 +16,6 @@ void init_ramfs();
 file_t *mkdir(char *name);
 void ls();
 void pwd();
+int rm(char *name);
 
 #endif // __RAMFS_H__
