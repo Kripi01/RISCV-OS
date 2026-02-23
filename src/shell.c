@@ -30,6 +30,7 @@ extern int umkdir(int argc, char **argv);
 extern int uls(int argc, char **argv);
 extern int upwd(int argc, char **argv);
 extern int urm(int argc, char **argv);
+extern int ucd(int argc, char **argv);
 
 command_t commands[] = {
     {.nom = "help", .fonction = help},
@@ -52,6 +53,7 @@ command_t commands[] = {
     {.nom = "ls", .fonction = uls},
     {.nom = "pwd", .fonction = upwd},
     {.nom = "rm", .fonction = urm},
+    {.nom = "cd", .fonction = ucd},
 };
 
 #define NB_COMMANDS (int)(sizeof(commands) / sizeof(command_t))

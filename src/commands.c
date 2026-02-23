@@ -134,3 +134,16 @@ int urm(int argc, char *argv[]) {
 
   UEXIT(exit_code);
 }
+
+int ucd(int argc, char **argv) {
+  if (argc > 2) {
+    UPUTS("cd: trop d'arguments.\n");
+    UEXIT(1);
+  } else if (argc == 1) {
+    UPUTS("cd: todo\n");
+    UEXIT(0);
+  } else {
+    UCD(argv[1]);
+    UEXIT(0);
+  }
+}

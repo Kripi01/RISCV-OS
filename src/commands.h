@@ -18,5 +18,6 @@ int umkdir(int argc, char **argv);
 int uls(int argc, char **argv);
 int upwd(int argc, char **argv);
 int urm(int argc, char **argv);
+int ucd(int argc, char **argv);
 
 #endif // __COMMANDS_H__

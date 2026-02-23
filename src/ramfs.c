@@ -5,6 +5,9 @@
 #include <stdio.h>
 #include <string.h>
 
+// TODO: à la création d'un fichier, stocker son path complet dans nom (ou dans
+// un autre champ)
+
 // NOTE: Un dossier est un fichier.
 
 static file_t *cur_file = NULL;
@@ -32,6 +35,8 @@ void init_ramfs() {
   file_t root = {.name = pa_name, .nb_children = 0, .children = NULL};
   *(file_t *)pa_root = root;
 
+  pa_root->father = pa_root; // la racine est son propre père
+
   cur_file = (file_t *)pa_root;
 }
 
@@ -55,7 +60,8 @@ file_t *mkdir(char *name) {
     printf("mkdir error.\n");
     return NULL;
   }
-  file_t f = {.name = pa_name, .nb_children = 0, .children = NULL};
+  file_t f = {
+      .name = pa_name, .nb_children = 0, .father = cur_file, .children = NULL};
   *(file_t *)pa_f = f;
 
   // On ajoute le nouveau fichier aux enfants du fichier courant
@@ -86,7 +92,9 @@ void ls() {
 
 void pwd() { printf("%s\n", cur_file->name); }
 
-// Supprime le fichier de nom "name" s'il exsite.
+// Supprime le fichier de nom "name" s'il exsite en libérant ses données
+// allouées sur le tas.
+// TODO: mettre une sécurité pour ne pas supprimer la racine
 int rm(char *name) {
   for (int i = 0; i < cur_file->nb_children; i++) {
     if (strcmp(cur_file->children[i]->name, name) == 0) {
@@ -96,7 +104,10 @@ int rm(char *name) {
         return 1;
       }
 
-      kfree(cur_file->children[i]); // on libère le fichier
+      // on libère tout ce qui a été alloué sur le tas (mais on ne supprime pas
+      // le père)
+      kfree(cur_file->children[i]->name);
+      kfree(cur_file->children[i]);
 
       // On décale tous les enfants du fichier courant pour combler le trou
       size_t size = (cur_file->nb_children - i - 1) * sizeof(file_t *);
@@ -108,5 +119,22 @@ int rm(char *name) {
   }
 
   printf("rm error: le fichier %s n'existe pas.\n", name);
+  return 1;
+}
+
+int cd(char *path) {
+  if (strcmp(path, "..") == 0 || strcmp(path, "../") == 0) {
+    cur_file = cur_file->father;
+    return 0;
+  }
+
+  for (int i = 0; i < cur_file->nb_children; i++) {
+    if (strcmp(path, cur_file->children[i]->name) == 0) {
+      cur_file = cur_file->children[i];
+      return 0;
+    }
+  }
+
+  printf("cd: %s: Pas de tel fichier ou dossier.\n", path);
   return 1;
 }

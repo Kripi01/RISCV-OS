@@ -9,6 +9,7 @@
 typedef struct file_s {
   char *name;
   int nb_children;
+  struct file_s *father;
   struct file_s **children; // la liste des enfants est allouée sur le tas
 } file_t;
 
@@ -17,5 +18,6 @@ file_t *mkdir(char *name);
 void ls();
 void pwd();
 int rm(char *name);
+int cd(char *path);
 
 #endif // __RAMFS_H__
