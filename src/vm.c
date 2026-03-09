@@ -98,6 +98,7 @@ pte_t *walk(pagetable_t pt, uintptr_t va, int alloc) {
       // On alloue une nouvelle page
       pt = (pagetable_t)get_frame();
       if (!alloc || pt == NULL) {
+        // BUG: memory leak si alloc == false alors on ne free pas pt !!!
         return NULL;
       }
       memset(pt, 0, PAGESIZE);

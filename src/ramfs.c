@@ -32,7 +32,8 @@ void init_ramfs() {
     printf("init_ramfs error.\n");
     return;
   }
-  file_t root = {.name = pa_name, .nb_children = 0, .children = NULL};
+  file_t root = {
+      .name = pa_name, .path = pa_name, .nb_children = 0, .children = NULL};
   *(file_t *)pa_root = root;
 
   pa_root->father = pa_root; // la racine est son propre père
@@ -55,13 +56,29 @@ file_t *mkdir(char *name) {
   // on copie name (potentiellement va) sur le tas (pa)
   strncpy(pa_name, name, FILENAME_MAXSIZE);
 
+  char *pa_path = kmalloc(PATH_MAXSIZE * sizeof(char));
+  if (pa_path == NULL) {
+    printf("mkdir error.\n");
+    return NULL;
+  }
+  // le chemin du nouveau fichier est celui du père du nouveau fichier (donc
+  // cur_file) + le nouveau nom + '/'
+  // TODO: gérer le cas où c'est tronqué.
+  size_t path_maxsize = PATH_MAXSIZE * sizeof(char);
+  strncpy(pa_path, cur_file->path, path_maxsize);
+  strncat(strncpy(pa_path + strlen(cur_file->path), pa_name, path_maxsize), "/",
+          path_maxsize);
+
   file_t *pa_f = kmalloc(sizeof(file_t));
   if (pa_f == NULL) {
     printf("mkdir error.\n");
     return NULL;
   }
-  file_t f = {
-      .name = pa_name, .nb_children = 0, .father = cur_file, .children = NULL};
+  file_t f = {.name = pa_name,
+              .path = pa_path,
+              .nb_children = 0,
+              .father = cur_file,
+              .children = NULL};
   *(file_t *)pa_f = f;
 
   // On ajoute le nouveau fichier aux enfants du fichier courant
@@ -90,7 +107,7 @@ void ls() {
   printf("\n");
 }
 
-void pwd() { printf("%s\n", cur_file->name); }
+void pwd() { printf("%s\n", cur_file->path); }
 
 // Supprime le fichier de nom "name" s'il exsite en libérant ses données
 // allouées sur le tas.
@@ -107,6 +124,7 @@ int rm(char *name) {
       // on libère tout ce qui a été alloué sur le tas (mais on ne supprime pas
       // le père)
       kfree(cur_file->children[i]->name);
+      kfree(cur_file->children[i]->path);
       kfree(cur_file->children[i]);
 
       // On décale tous les enfants du fichier courant pour combler le trou

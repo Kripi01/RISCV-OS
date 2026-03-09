@@ -2,6 +2,9 @@
 // Statements and Declarations in Expressions (GCC):
 // https://gcc.gnu.org/onlinedocs/gcc/Statement-Exprs.html
 
+// TODO: remettre au clair comment sont chargés les codes kernel dans la mémoire
+// processus. En fait, remettre au clair toute la mémoire user.
+
 #ifndef __SYSCALLS_H__
 #define __SYSCALLS_H__
 
