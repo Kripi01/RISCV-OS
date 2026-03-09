@@ -1,3 +1,0 @@
-image: sebastienviardot/pcsef_riscv:20250708
-tasks:
-  - init: source /opt/vnc.sh
