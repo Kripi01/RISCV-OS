@@ -92,3 +92,9 @@
   ```bash
   make debugg
   ```
+
+**Then open a new terminal and run:**
+
+```bash
+gdb-multiarch kernel.bin -tui
+```
