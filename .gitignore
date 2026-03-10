@@ -3,7 +3,6 @@
 *.bin
 .gdb_history
 .gdbinit
-/docs
 *.dts
 *.dtb
 notes.txt
