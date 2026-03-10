@@ -1,6 +1,6 @@
 # A from-scratch OS for RISC-V 64-bit
 
-**Note:** The source code and comments are currently in French and are being progressively translated.
+**Note:** The source code and comments are currently in French but are being progressively translated.
 
 ## Implemented Features
 
