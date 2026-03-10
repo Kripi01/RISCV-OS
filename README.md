@@ -81,7 +81,14 @@
 
 ### Debugging
 
-```bash
-make debug  # console
-make debugg # graphic
-```
+* **Console mode (nographic):**
+
+  ```bash
+  make debug
+  ```
+
+* **Graphic mode:**
+
+  ```bash
+  make debugg
+  ```
